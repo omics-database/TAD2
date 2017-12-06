@@ -8,7 +8,7 @@
 	$table = "vw_metadata";
 	$statustable1 = "GeneStats";
 	$statustable2 = "VarSummary";
-	$query = "select $table.sampleid, $table.animalid, $table.organism, $table.tissue, $table.sampledescription, $table.date ,$statustable1.status as genestatus, $statustable2.status as variantstatus from $table left outer join $statustable1 on $table.sampleid = $statustable1.sampleid left outer join $statustable2 on $statustable2.sampleid = $table.sampleid ";
+	$query = "select $table.sampleid, $table.animalid, $table.organism, $table.tissue, $table.sampledescription, $table.date ,$statustable1.genestatus as genestatus, $statustable2.status as variantstatus from $table left outer join $statustable1 on $table.sampleid = $statustable1.sampleid left outer join $statustable2 on $statustable2.sampleid = $table.sampleid ";
 ?>
 	<div class="menu">TransAtlasDB Metadata</div>
 	<table width=100%><tr><td width=280pt>
@@ -69,7 +69,7 @@
 		$_SESSION[$table]['vstatus'] = $_POST['vnull'];
 
 		if ($_SESSION[$table]['gstatus'] == "true"){
-			$query .= " WHERE $statustable1.status = ". '"done" ';
+			$query .= " WHERE $statustable1.genestatus = ". '"done" ';
 			if ($is_term) {
 				$query .= "AND ";
 			}
@@ -105,7 +105,7 @@
 			}
 		}
 		if ($_SESSION[$table]['gstatus'] == "true"){
-			$query .= " WHERE $statustable1.status = ". '"done" ';
+			$query .= " WHERE $statustable1.genestatus = ". '"done" ';
 			if ($is_term) {
 				$query .= "AND ";
 			}
