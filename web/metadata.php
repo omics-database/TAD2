@@ -8,7 +8,7 @@
 	$table = "vw_metadata";
 	$statustable1 = "GeneStats";
 	$statustable2 = "VarSummary";
-	$query = "select $table.sampleid, $table.animalid, $table.organism, $table.tissue, $table.sampledescription, $table.date ,$statustable1.genestatus as genestatus, $statustable2.status as variantstatus from $table left outer join $statustable1 on $table.sampleid = $statustable1.sampleid left outer join $statustable2 on $statustable2.sampleid = $table.sampleid ";
+	$query = "select $table.sampleid, $table.animalid, $table.organism, $table.tissue, $table.sampledescription, $table.date ,$statustable1.genestatus as genestatus, $statustable1.countstatus as countstatus, $statustable2.status as variantstatus from $table left outer join $statustable1 on $table.sampleid = $statustable1.sampleid left outer join $statustable2 on $statustable2.sampleid = $table.sampleid ";
 ?>
 	<div class="menu">TransAtlasDB Metadata</div>
 	<table width=100%><tr><td width=280pt>
@@ -66,15 +66,39 @@
 		$_SESSION[$table]['select'] = $terms;
 		$_SESSION[$table]['column'] = $_POST['column'];
 		$_SESSION[$table]['gstatus'] = $_POST['rnull'];
+		$_SESSION[$table]['cstatus'] = $_POST['cnull'];
 		$_SESSION[$table]['vstatus'] = $_POST['vnull'];
 
-		if ($_SESSION[$table]['gstatus'] == "true"){
+		if ($_SESSION[$table]['gstatus'] == "true"){ #gene
 			$query .= " WHERE $statustable1.genestatus = ". '"done" ';
+			if ($_SESSION[$table]['cstatus'] == "true"){ #g-count
+				$query .= "AND $statustable1.countstatus = ". '"done" ';
+			}
+			if ($_SESSION[$table]['vstatus'] == "true"){ #g-variant
+				$query .= "AND $statustable2.status = ". '"done" ';
+			}
 			if ($is_term) {
 				$query .= "AND ";
 			}
-		} elseif ($_SESSION[$table]['vstatus'] == "true"){
+		} elseif ($_SESSION[$table]['cstatus'] == "true"){ #count
+			$query .= " WHERE $statustable1.countstatus = ". '"done" ';
+			if ($_SESSION[$table]['gstatus'] == "true"){ #c-gene
+				$query .= "AND $statustable1.genestatus = ". '"done" ';
+			}
+			if ($_SESSION[$table]['vstatus'] == "true"){ #c-variant
+				$query .= "AND $statustable2.status = ". '"done" ';
+			}
+			if ($is_term) {
+				$query .= "AND ";
+			}
+		} elseif ($_SESSION[$table]['vstatus'] == "true"){ #variant
 			$query .= " WHERE $statustable2.status = ". '"done" ';
+			if ($_SESSION[$table]['cstatus'] == "true"){ #v-count
+				$query .= "AND $statustable1.countstatus = ". '"done" ';
+			}
+			if ($_SESSION[$table]['gstatus'] == "true"){ #v-gene
+				$query .= "AND $statustable1.genestatus = ". '"done" ';
+			}
 			if ($is_term) {
 				$query .= "AND ";
 			}
@@ -222,6 +246,7 @@
 		</select>
 		<span>records.</span></p><p class="pages">
     <span>View samples with gene expression information:</span><input type="checkbox" name="rnull" value="true"><br>
+		<span>View samples with gene raw counts information:</span><input type="checkbox" name="cnull" value="true"><br>
 	<span>View samples with variant information:</span><input type="checkbox" name="vnull" value="true"> 
     <input type="submit" name="order" value="Go"/></p></div>
 </form>
@@ -239,8 +264,9 @@
       echo '<form action="" method="post">';
       echo "<span>" . $num_results . " out of " . $num_total_result . " search results displayed. ";
       echo '<input type="submit" name="downloadvalues" value="Download Selected Values"/></span>
-	    <input type="submit" name="downloadfpkm" value="Download FPKM  Values"/></span>
-            <input type="submit" name="transfervalues" value="View Mapping Information"/></span>';
+				<input type="submit" name="downloadfpkm" value="Download FPKM  Values"/></span>
+				<input type="submit" name="downloadtpm" value="Download TPM  Values"/></span>
+        <input type="submit" name="transfervalues" value="View Mapping Information"/></span>';
       meta_display($result);
       if(!empty($_POST['meta_data']) && isset($_POST['downloadvalues'])) { //If download Metadata
         foreach($_POST['meta_data'] as $check) {
@@ -249,24 +275,40 @@
         $dataline = rtrim($dataline, ",");
         $output = "OUTPUT/metadata_".$explodedate.".txt";
         $pquery = "perl $basepath/tad-export.pl -w -query 'select $table.sampleid, $table.animalid, $table.organism, $table.tissue, $table.sampledescription, $table.date from $table where $table.sampleid in ($dataline)' -o $output";
-		shell_exec($pquery);
+				shell_exec($pquery);
         print("<script>location.href='results.php?file=$output&name=metadata.txt'</script>");
       }
       elseif(!empty($_POST['meta_data']) && isset($_POST['downloadfpkm'])) { //If download fpkm
         foreach($_POST['meta_data'] as $check) {
           $dataline .= $check.",";
-		  $newdataline .= '"'.$check.'",';
+					$newdataline .= '"'.$check.'",';
         }
         $dataline = rtrim($dataline, ",");$newdataline = rtrim($newdataline, ",");
-		$output = "OUTPUT/fpkm_".$explodedate.".txt";
-		$query = "select b.organism from Animal b join Sample a on a.derivedfrom = b.animalid where a.sampleid in ($newdataline) limit 1";
-		$result = mysqli_query($db_conn,$query);
-		$row = mysqli_fetch_array($result,MYSQLI_ASSOC);
-		$organism = $row['organism'];
-        
-		$pquery = "perl $basepath/tad-export.pl -w -genexp --db2data --species '$organism' --samples '$dataline' --output $output";
-		shell_exec($pquery);
+				$output = "OUTPUT/fpkm_".$explodedate.".txt";
+				$query = "select b.organism from Animal b join Sample a on a.derivedfrom = b.animalid where a.sampleid in ($newdataline) limit 1";
+				$result = mysqli_query($db_conn,$query);
+				$row = mysqli_fetch_array($result,MYSQLI_ASSOC);
+				$organism = $row['organism'];
+						
+				$pquery = "perl $basepath/tad-export.pl -w -genexp --fpkm --db2data --species '$organism' --samples '$dataline' --output $output";
+				shell_exec($pquery);
         print("<script>location.href='results.php?file=$output&name=fpkm.txt'</script>");
+      }
+			elseif(!empty($_POST['meta_data']) && isset($_POST['downloadtpm'])) { //If download TPM
+        foreach($_POST['meta_data'] as $check) {
+          $dataline .= $check.",";
+					$newdataline .= '"'.$check.'",';
+        }
+        $dataline = rtrim($dataline, ",");$newdataline = rtrim($newdataline, ",");
+				$output = "OUTPUT/tpm_".$explodedate.".txt";
+				$query = "select b.organism from Animal b join Sample a on a.derivedfrom = b.animalid where a.sampleid in ($newdataline) limit 1";
+				$result = mysqli_query($db_conn,$query);
+				$row = mysqli_fetch_array($result,MYSQLI_ASSOC);
+				$organism = $row['organism'];
+						
+				$pquery = "perl $basepath/tad-export.pl -w -genexp --tpm --db2data --species '$organism' --samples '$dataline' --output $output";
+				shell_exec($pquery);
+        print("<script>location.href='results.php?file=$output&name=tpm.txt'</script>");
       }
       elseif(!empty($_POST['meta_data']) && isset($_POST['transfervalues'])) { //If transfer to sequencing information page
         foreach($_POST['meta_data'] as $check) {
