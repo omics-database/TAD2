@@ -176,7 +176,7 @@
 			$output = "OUTPUT/avgfpkm_".$explodedate.".txt";
 			foreach ($_POST["tissue"] as $tissue){ $tissues .= $tissue. ","; } $tissues = rtrim($tissues,",");
 			$genenames = rtrim($_POST['search'],",");
-			$pquery = "perl $basepath/tad-export.pl -w -db2data -avgfpkm -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --tissue '$tissues' -o $output";
+			$pquery = "perl $basepath/tad-export.pl -w -db2data -avgexp -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --tissue '$tissues' -o $output";
 			//print $pquery;
 			shell_exec($pquery);
 			if (file_exists($output)){
