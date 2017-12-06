@@ -83,9 +83,8 @@ if ($dbdata){ #if db 2 data mode selected
         undef %ARRAYQUERY;
         #making sure required attributes are specified.
         unless ($log){
-            if ($exfpkm) { $verbose and printerr "TASK:\t Average FPKM Values of Individual Genes\n"; }
-            elsif ($extpm) { $verbose and printerr "TASK:\t Average TPM Values of Individual Genes\n"; }
-            else { $verbose and printerr "TASK:\t Average Expression Values of Individual Genes\n"; }
+            if ($extpm) { $verbose and printerr "TASK:\t Average TPM Values of Individual Genes\n"; }
+            else { $verbose and printerr "TASK:\t Average FPKM Values of Individual Genes\n"; }
         }
         unless ($gene && $organism){
             unless ($log) {
@@ -127,15 +126,12 @@ if ($dbdata){ #if db 2 data mode selected
         foreach my $fgene (@genes){
             $fgene =~ s/^\s+|\s+$//g;
             foreach my $ftissue (@tissue) {
-                if ($exfpkm) {
-                    @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUM FPKM");
-                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism" and fpkm != 0' -o $nosql 2>>$efile`;
-                } elsif ($extpm) {
+                if ($extpm) {
                     @header = ("GENENAME","TISSUE", "MAXIMUM TPM", "AVERAGE TPM", "MINIMUM TPM");
                     `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism"  and tpm != 0' -o $nosql 2>>$efile`;
                 } else {
-                    @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUM FPKM", "MAXIMUM TPM", "AVERAGE TPM", "MINIMUM TPM");
-                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism"' -o $nosql 2>>$efile`;
+                    @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUM FPKM");
+                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism" and fpkm != 0' -o $nosql 2>>$efile`;
                 }
                 $table = Text::TabularDisplay->new( @header );
                 my $found = `head -n 1 $nosql`;
@@ -145,12 +141,10 @@ if ($dbdata){ #if db 2 data mode selected
                         chomp;
                         my ($genename,$fmax,$favg,$fmin,$tmax,$tavg,$tmin) = split (/\, /, $_, 7);
                         $genename =~ s/^'|'$|^"|"$//g; #removing the quotation marks from the words
-                        if ($exfpkm) {
-                            push @row, ($genename,$ftissue, $fmax, $favg, $fmin);
-                        } elsif ($extpm) {
-                            push @row, ($genename,$ftissue, $tmax, $tavg, $tmin);
+                        if ($extpm) {
+                            @row = ($genename,$ftissue, $tmax, $tavg, $tmin);
                         } else {
-                            push @row, ($genename,$ftissue, $fmax, $favg, $fmin, $tmax, $tavg, $tmin);
+                            @row = ($genename,$ftissue, $fmax, $favg, $fmin);
                         }
                         $count++;
                         $ARRAYQUERY{$genename}{$ftissue} = [@row];
