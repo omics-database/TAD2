@@ -19,8 +19,8 @@ our $AUTHOR= '$ Author:Modupe Adetunji <amodupe@udel.edu> $';
 #--------------------------------------------------------------------------------
 print "\n";
 our ($verbose, $efile, $help, $man, $nosql, $tmpout, $log);
-our ($dbh, $sth, $found, $count, @header, $connect, $fastbit);
-our ($query, $output,$avgfpkm, $gene, $tissue, $organism, $genexp, $chrvar, $sample, $chromosome, $varanno, $region, $vcf);
+our ($dbh, $sth, $found, $count, @header, @row, $connect, $fastbit);
+our ($query, $output,$avgexp, $gene, $tissue, $organism, $genexp, $chrvar, $sample, $chromosome, $varanno, $region, $vcf, $exfpkm, $extpm);
 my ($dbdata, $table, $outfile, $syntax, $status, $vcfsyntax);
 my $tmpname = rand(20);
 our (%ARRAYQUERY, %SAMPLE);
@@ -76,19 +76,23 @@ if ($query) { #if user query mode selected
 
 if ($dbdata){ #if db 2 data mode selected
     no warnings 'uninitialized';
-    if ($avgfpkm){ #looking at average fpkms
+    if ($avgexp){ #looking at average fpkms
         $fastbit = fastbit($all_details{'FastBit-path'}, $all_details{'FastBit-foldername'});  #connect to fastbit
         my $gfastbit = $fastbit."/gene-information";
         $count = 0;
         undef %ARRAYQUERY;
         #making sure required attributes are specified.
-        unless ($log){ $verbose and printerr "TASK:\t Average Fpkm Values of Individual Genes\n";}
+        unless ($log){
+            if ($exfpkm) { $verbose and printerr "TASK:\t Average FPKM Values of Individual Genes\n"; }
+            elsif ($extpm) { $verbose and printerr "TASK:\t Average TPM Values of Individual Genes\n"; }
+            else { $verbose and printerr "TASK:\t Average Expression Values of Individual Genes\n"; }
+        }
         unless ($gene && $organism){
             unless ($log) {
                 unless ($gene) {printerr "ERROR:\t Gene option '-gene' is not specified\n"; }
                 unless ($organism) {printerr "ERROR:\t Organism option '-species' is not specified\n"; }
             }
-            pod2usage("ERROR:\t Details for -avgfpkm are missing. Review 'tad-interact.pl -d' for more information");
+            pod2usage("ERROR:\t Details for -avgexp are missing. Review 'tad-interact.pl -d' for more information");
         }
         $dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
         #checking if the organism is in the database
@@ -123,42 +127,37 @@ if ($dbdata){ #if db 2 data mode selected
         foreach my $fgene (@genes){
             $fgene =~ s/^\s+|\s+$//g;
             foreach my $ftissue (@tissue) {
-                @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUMFPKM");
+                if ($exfpkm) {
+                    @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUM FPKM");
+                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism" and fpkm != 0' -o $nosql 2>>$efile`;
+                } elsif ($extpm) {
+                    @header = ("GENENAME","TISSUE", "MAXIMUM TPM", "AVERAGE TPM", "MINIMUM TPM");
+                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism"  and tpm != 0' -o $nosql 2>>$efile`;
+                } else {
+                    @header = ("GENENAME","TISSUE", "MAXIMUM FPKM", "AVERAGE FPKM", "MINIMUM FPKM", "MAXIMUM TPM", "AVERAGE TPM", "MINIMUM TPM");
+                    `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm), max(tpm), avg(tpm), min(tpm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism"' -o $nosql 2>>$efile`;
+                }
                 $table = Text::TabularDisplay->new( @header );
-                `$ibis -d $gfastbit -q 'select genename, max(fpkm), avg(fpkm), min(fpkm) where genename like "%$fgene%" and tissue = "$ftissue" and organism = "$organism"' -o $nosql 2>>$efile`;
-				my $found = `head -n 1 $nosql`;
-				if (length($found) > 1) {
-					open(IN,"<",$nosql);
-					while (<IN>){
+                my $found = `head -n 1 $nosql`;
+                if (length($found) > 1) {
+                    open(IN,"<",$nosql);
+                    while (<IN>){
                         chomp;
-						my ($genename,$max,$avg,$min) = split (/\, /, $_, 4);
-						$genename =~ s/^'|'$|^"|"$//g; #removing the quotation marks from the words
-						push my @row, ($genename,$ftissue,$max, $avg, $min);
+                        my ($genename,$fmax,$favg,$fmin,$tmax,$tavg,$tmin) = split (/\, /, $_, 7);
+                        $genename =~ s/^'|'$|^"|"$//g; #removing the quotation marks from the words
+                        if ($exfpkm) {
+                            push @row, ($genename,$ftissue, $fmax, $favg, $fmin);
+                        } elsif ($extpm) {
+                            push @row, ($genename,$ftissue, $tmax, $tavg, $tmin);
+                        } else {
+                            push @row, ($genename,$ftissue, $fmax, $favg, $fmin, $tmax, $tavg, $tmin);
+                        }
                         $count++;
                         $ARRAYQUERY{$genename}{$ftissue} = [@row];
                     } close (IN); `rm -rf $nosql`;
                 } else {
                     unless ($log) { printerr "NOTICE:\t No Results found with gene '$fgene'\n"; }
                 }
-
-        #$syntax = "call usp_gdtissue(\"".$fgene."\",\"".$ftissue."\",\"". $organism."\")";
-        #        $sth = $dbh->prepare($syntax);
-        #        $sth->execute() or die "SQL Error: $DBI::errstr\n";
-        #        @header = @{ $sth->{NAME_uc} }; #header
-        #        splice @header, 1, 0, 'TISSUE';
-        #        $table = Text::TabularDisplay->new( @header );
-        #        my $found = $sth->fetch();
-        #        if ($found) {
-        #            $sth->execute() or die "SQL Error: $DBI::errstr\n";
-        #            while (my ($genename, $max, $avg, $min) = $sth->fetchrow_array() ) { #content
-        #                push my @row, ($genename, $ftissue, $max, $avg, $min);
-        #                $count++;
-        #                $ARRAYQUERY{$genename}{$ftissue} = [@row];
-        #            }
-        #        } else {
-        #            printerr "NOTICE:\t No Results found with gene '$fgene'\n";
-        #        }
-        
             }
         }
         unless ($count == 0) {
@@ -181,13 +180,16 @@ if ($dbdata){ #if db 2 data mode selected
             }    
             unless ($log) { $verbose and printerr "NOTICE:\t Summary: $count rows in result\n"; }
         } else { unless ($log) { printerr "\nNOTICE:\t No Results based on search criteria: '$gene' \n"; } }
-    } #end of avgfpkm module
+    } #end of avgexp module
     
     if ($genexp){ #looking at gene expression per sample
         `mkdir -p tadtmp/`;
         $count = 0;
         #making sure required attributes are specified.
-        unless ($log) { $verbose and printerr "TASK:\t Gene Expression (FPKM) information across Samples\n"; }
+        unless ($log){
+            if ($extpm) { $verbose and printerr "TASK:\t Gene Expression (TPM) of Individual Genes\n"; }
+            else { $verbose and printerr "TASK:\t Gene Expression (FPKM) information across Samples\n"; }
+        }
         unless ($organism){
             unless ($log) { printerr "ERROR:\t Organism option '-species' is not specified\n"; }
             pod2usage("ERROR:\t Details for -genexp are missing. Review 'tad-interact.pl -e' for more information");
@@ -221,8 +223,12 @@ if ($dbdata){ #if db 2 data mode selected
                 $sample .= $row.",";
             } chop $sample;
         } #checking sample options
-        @headers = split(",", $sample); 
-        $syntax = "select genename, fpkm, sampleid, chrom, start, stop where";
+        @headers = split(",", $sample);
+        if ($extpm){
+            $syntax = "select genename, tpm, sampleid, chrom, start, stop where tpm != 0 and";
+        } else {
+            $syntax = "select genename, fpkm, sampleid, chrom, start, stop where fpkm != 0 and";
+        }
         if ($gene) {
             my @genes = split(",", $gene); undef $gene;
             foreach (@genes){
@@ -271,13 +277,6 @@ if ($dbdata){ #if db 2 data mode selected
                     $POSITION{"$geneid|$chrom"}{$library} = "$start|$stop";
                 } close (IN); `rm -rf $nosql`;
             }
-            
-		
-            #while (my ($gene_id, $fpkm, $library_id, $chrom, $start, $stop) = $sth->fetchrow_array() ) {
-            #    $FPKM{"$gene_id|$chrom"}{$library_id} = $fpkm;
-            #    $CHROM{"$gene_id|$chrom"} = $chrom;
-            #    $POSITION{"$gene_id|$chrom"}{$library_id} = "$start|$stop";
-            #}
             
         } #end foreach extracting information from the database    
         unless ($log) {
@@ -708,21 +707,22 @@ unless ($log) {
 
 sub processArguments {
     my @commandline = @ARGV;
-  GetOptions('verbose|v'=>\$verbose, 'help|h'=>\$help, 'man|m'=>\$man, 'query=s'=>\$query, 'db2data'=>\$dbdata, 'o|output'=>\$output,'w'=>\$log,
-                         'avgfpkm'=>\$avgfpkm, 'gene=s'=>\$gene, 'tissue=s'=>\$tissue, 'species=s'=>\$organism, 'genexp'=>\$genexp,'vcf'=>\$vcf,
-                         'samples|sample=s'=>\$sample, 'chrvar'=>\$chrvar, 'chromosome=s'=>\$chromosome, 'varanno'=>\$varanno,'region=s'=>\$region) or pod2usage ();
+    GetOptions('verbose|v'=>\$verbose, 'help|h'=>\$help, 'man|m'=>\$man, 'query=s'=>\$query, 'db2data'=>\$dbdata, 'o|output'=>\$output,'w'=>\$log,
+                         'avgexp'=>\$avgexp, 'gene=s'=>\$gene, 'tissue=s'=>\$tissue, 'species=s'=>\$organism, 'genexp'=>\$genexp, 'fpkm'=>\$exfpkm,
+                         'tpm'=>\$extpm, 'vcf'=>\$vcf, 'samples|sample=s'=>\$sample, 'chrvar'=>\$chrvar, 'chromosome=s'=>\$chromosome,
+                         'varanno'=>\$varanno,'region=s'=>\$region) or pod2usage ();
 
-  $help and pod2usage (-verbose=>1, -exitval=>1, -output=>\*STDOUT);
-  $man and pod2usage (-verbose=>2, -exitval=>1, -output=>\*STDOUT);  
-  pod2usage(-msg=>"ERROR:\t Invalid syntax specified, choose -query or -db2data.") unless ( $query || $dbdata);
-  pod2usage(-msg=>"ERROR:\t Invalid syntax specified @commandline") if (($query && $dbdata)|| ($avgfpkm && $genexp) || ($gene && $chromosome));
-    if ($dbdata) { pod2usage(-msg=>"ERROR:\t Invalid syntax specified @commandline, choose -avgfpkm or -genexp or -chrvar or -varanno") unless ($avgfpkm || $genexp || $chrvar || $varanno); }
+    $help and pod2usage (-verbose=>1, -exitval=>1, -output=>\*STDOUT);
+    $man and pod2usage (-verbose=>2, -exitval=>1, -output=>\*STDOUT);  
+    pod2usage(-msg=>"ERROR:\t Invalid syntax specified, choose -query or -db2data.") unless ( $query || $dbdata);
+    pod2usage(-msg=>"ERROR:\t Invalid syntax specified @commandline") if (($query && $dbdata)|| ($avgexp && $genexp) || ($gene && $chromosome));
+    if ($dbdata) { pod2usage(-msg=>"ERROR:\t Invalid syntax specified @commandline, choose -avgexp or -genexp or -chrvar or -varanno") unless ($avgexp || $genexp || $chrvar || $varanno); }
     if ($vcf) {
         pod2usage(-msg=>"ERROR:\t VCF output is not configured for specific genes, remove -gene option") if ($varanno && $gene);
         pod2usage(-msg=>"ERROR:\t VCF output is not configured @commandline") unless ($varanno && ! $gene);
     }
     if ($vcf) { pod2usage("ERROR:\t Syntax error. Specify -output <filename>") unless ($output); }
-  @ARGV<=1 or pod2usage("Syntax error");
+    @ARGV<=1 or pod2usage("Syntax error");
     if ($output) {
         @ARGV==1 or pod2usage("ERROR:\t Syntax error. Specify the output filename");
         $output = $ARGV[0];
@@ -779,7 +779,9 @@ sub collectsort{
         if ($genename =~ /^\S/){
             my ($realstart,$realstop) = split('\|',$REALPOST{$genename},2);
             my $realgenes = (split('\|',$genename))[0];
-            print OUT2 $realgenes."\t".$CHROM{$genename}."\:".$realstart."\-".$realstop."\t";
+            print OUT2 $realgenes,"\t";
+            if ($CHROM{$genename} =~ /NULL$/) { print OUT2 "\t"; }
+            else { print OUT2 $CHROM{$genename}."\:".$realstart."\-".$realstop."\t"; }
             foreach my $lib (0..$#headers-1){
                 if (exists $FPKM{$genename}{$headers[$lib]}){
                     print OUT2 "$FPKM{$genename}{$headers[$lib]}\t";
@@ -806,15 +808,13 @@ sub sortposition {
         my ($astart, $astop, $status) = VERDICT(split('\|',$POSITION{$genename}{$libest},2));
     push @newstartarray, $astart;
         push @newstoparray, $astop;
-        if ($status eq "forward"){
+        if ($status eq "reverse"){
+            $realstart = (sort {$b <=> $a} @newstartarray)[0];
+            $realstop = (sort {$a <=> $b} @newstoparray)[0];
+        } else {
             $realstart = (sort {$a <=> $b} @newstartarray)[0];
             $realstop = (sort {$b <=> $a} @newstoparray)[0];    
         }
-        elsif ($status eq "reverse"){
-            $realstart = (sort {$b <=> $a} @newstartarray)[0];
-            $realstop = (sort {$a <=> $b} @newstoparray)[0];
-        }
-        else { die "Something is wrong\n"; }
         $REALPOST{$genename} = "$realstart|$realstop";
     }
 }
@@ -1090,26 +1090,26 @@ sub MTD {
         -v, --verbose                   use verbose output
 
     Arguments to retrieve database information
-            --query            perform sql queries directly to the mysql database
-            --db2data                    perform configured modules 
+            --query                     perform sql queries directly to the mysql database
+            --db2data                   perform configured modules 
 
         Arguments for db2data
-            --avgfpkm            average expression (fpkm) values of specified genes
-        --genexp            expression (fpkm) values of genes across selected samples
-        --chrvar            chromosomal vriant distribution across selected samples
-        --varanno            variants with annotation information in genes or chromosomal region. 
+            --avgexp                    average expression (fpkm/tpm) values of specified genes
+            --genexp                    expression (fpkm/tpm) values of genes across selected samples
+            --chrvar                    chromosomal vriant distribution across selected samples
+            --varanno                   variants with annotation information in genes or chromosomal region. 
  
         More Arguments for db2data
-        --species            Organism Name (required)
-        --gene            Gene Name(s)
-        --tissue            Tissue Name(s) [ multiple tissues should be separated by comma ]
-        -sample, --samples        Sample ID(s) [ multiple sample(s) should be separated by comma ]
-        --chromosome        Chromosome(s) [ multiple chromosome(s) should be separated by comma ]
-        --region            Chromosomal region (e.g 1-1000000 or 1000000)
+            --species                   Organism Name (required)
+            --gene                      Gene Name(s)
+            --tissue                    Tissue Name(s) [ multiple tissues should be separated by comma ]
+            -sample, --samples          Sample ID(s) [ multiple sample(s) should be separated by comma ]
+            --chromosome                Chromosome(s) [ multiple chromosome(s) should be separated by comma ]
+            --region                    Chromosomal region (e.g 1-1000000 or 1000000)
             
     Arguments to export
-            -o, --output             output results in file name specified
-            --vcf                   output 'varanno' results in vcf format 
+            -o, --output                output results in file name specified
+            --vcf                       output 'varanno' results in vcf format 
 
  Function: export data from the database
 
@@ -1127,22 +1127,27 @@ sub MTD {
       tad-export.pl --db2data --varanno --species 'Gallus gallus' -o -vcf output.vcf
                     
       #variants and annotation information of genes 'OPTN' and 'GDF' in Gallus gallus organism
-          tad-export.pl --db2data --varanno --species 'Gallus gallus' --gene 'OPTN,GDF'
+      tad-export.pl --db2data --varanno --species 'Gallus gallus' --gene 'OPTN,GDF'
                     
       #variants and annotation information of chromosomes 'chr1,chr2' in Gallus gallus organism
-          tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1,chr2'
+      tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1,chr2'
       tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1,chr2' -o output.txt
       tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1,chr2' -o -vcf vcfoutput.vcf
         
       #variants and annotation information of chromosomal region 'chr1:50000-900000' in Gallus gallus organism
-          tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1' -region 50000-900000
+      tad-export.pl --db2data --varanno --species 'Gallus gallus' --chromosome 'chr1' -region 50000-900000
                     
-      #average fpkm values for genes 'OPTN' and 'GDF' in all tissues of Gallus gallus organism
-          tad-export.pl --db2data --avgfpkm --species 'Gallus gallus' --gene 'OPTN,GDF'
-      tad-export.pl --db2data --avgfpkm --species 'Gallus gallus' --gene 'OPTN,GDF' -o output.txt
+      #average fpkm or tpm values for genes 'OPTN' and 'GDF' in all tissues of Gallus gallus organism
+      tad-export.pl --db2data --avgexp --fpkm --species 'Gallus gallus' --gene 'OPTN,GDF'
+      tad-export.pl --db2data --avgexp --tpm --species 'Gallus gallus' --gene 'OPTN,GDF'
                     
-      #average fpkm values for genes 'OPTN' and 'GDF' in the pituitary gland of Gallus gallus organism
-      tad-export.pl --db2data --avgfpkm --species 'Gallus gallus' --gene 'OPTN,GDF' --tissue 'pituitary gland'
+      #average fpkm and tpm values for genes 'OPTN' and 'GDF' in the pituitary gland of Gallus gallus organism
+      tad-export.pl --db2data --avgexp --species 'Gallus gallus' --gene 'OPTN,GDF' --tissue 'pituitary gland'
+      
+      #fpkm or tpm values for genes 'OPTN' and 'GDF' in all tissues of Gallus gallus organism
+      tad-export.pl --db2data --genexp --fpkm --species 'Gallus gallus' --gene 'OPTN,GDF'
+      tad-export.pl --db2data --genexp --tpm --species 'Gallus gallus' --gene 'OPTN,GDF'
+                    
 
 
  Version: $ Date: 2016-12-05 15:50:08 (Mon, 05 Dec 2016) $
@@ -1171,13 +1176,13 @@ perform sql queries directly to the mysql database.
 
 perform pre-configured query modules.
 
-=item B<--avgfpkm>
+=item B<--avgexp>
 
-view average, maximum and minumum expression fpkm values of genes specified.
+view average, maximum and minumum expression fpkm and tpm values of genes specified.
 
 =item B<--genexp>
 
-view gene expression fpkm values of genes across selected samples.
+view gene expression fpkm and tpm values of genes across selected samples.
 
 =item B<--chrvar>
 
