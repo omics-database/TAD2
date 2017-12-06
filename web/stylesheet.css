@@ -1,0 +1,251 @@
+/* 
+    Document   : stylefile.css
+    Created on : May 10th, 2017
+    Author     : Modupeore Adetunji
+    Description: TransAtlasDB web interface style sheet
+*/
+/* For all the pages */
+html, head {
+    background-color: #fff;
+    color: #636b6f;
+    font-family: 'Raleway', sans-serif;
+    font-weight: 100;
+    height: 100vh;
+    margin: 0;
+}
+/* For the main page */
+.full-height {
+    height: 100vh;
+}
+
+.flex-center {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+}
+
+.position-ref {
+    position: relative;
+}
+
+.top-right {
+    position: absolute;
+    right: 10px;
+    top: 18px;
+}
+
+.content {
+    text-align: center;
+}
+.content > p {
+    color:black;
+}
+
+.title {
+    font-size: 84px;
+    text-shadow: 4px 4px 4px #aaa;
+}
+
+.title > a {
+    text-decoration: none;
+    color: inherit;
+}
+.linksheader > a {
+    color: #636b6f;
+    padding: 0 25px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: .1rem;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+.linksheader > a:hover {
+    color: #FFF;
+    background-color: #66415e;
+}
+
+.m-b-md {
+    margin-bottom: 30px;
+}
+
+/* For the Other Pages Header */
+.sub-md {
+    font-size: 50px;
+    margin: 20px;
+    text-align: center;
+}
+.links > a {
+    color: #636b6f;
+    padding: 5px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .1rem;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+.links > a:hover {
+    color: #FFF;
+    background-color: #66415e;
+}
+
+/* The Content */
+.structure {
+    padding:40pt;
+    color:black;
+}
+.dift {
+    margin: 10px 0 30px;
+    font-family: helvetica;
+    font-size: 90%;
+    color: #272a2c;
+    padding-left:30pt;
+    font-weight: normal;
+    line-height: 20pt;
+}
+.xtra {
+    margin: 10pt;
+    padding-bottom: 20pt;
+    font-family: 'tahoma','times';
+    font-size: 95%;
+    color: #272a2c;
+    font-weight: normal;
+    line-height: 20pt;
+}
+.menu {
+    width: 100%;
+    letter-spacing: 1px;
+    font-size: 20px;
+    font-family: 'Raleway', sans-serif;
+    font-weight: 400;
+    text-align: center;
+    background-color: #e4edf8;
+    margin: 1em 0 1em;
+    padding: 2pt;
+    color: #4a4166;
+    text-shadow: 0.5pt 0.5pt 0.5pt #23415a;
+}
+
+.pages{
+  /* Paragraph for the all pages */
+  margin:0;
+  padding:0;
+}
+/* Data Import table */
+table.metadata {
+    width:100%;
+    border-collapse: collapse;
+    border: 1px solid #636b6f;
+    padding-left:10px;
+    padding-right:10px;
+    font-family:arial;
+    word-wrap: break-word;
+    table-layout: fixed;
+    
+    
+}
+th.metadata {
+    padding-left:10px;
+    padding-right:10px;
+    color:#693730;
+    background-color:white;
+    text-align: center;
+}
+
+td.metadata {
+    font-weight:normal; font-size:10pt;
+    word-wrap: break-word;
+}
+
+tr.even {
+   background-color: #FFF;
+}
+tr.odd {
+  background-color: #e3e1e4;
+}
+.metamenu {
+    margin: 0 0 5px;
+    list-style: none;
+    padding: 10pt;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    background: #e3e1e4;
+    text-decoration: none;
+    color:#000;
+}
+.metamenu > a {
+    text-decoration: none;
+    list-style: none;
+}
+.metamenu > a:hover {
+    color: #fff;
+}
+.metactive {
+    margin: 0 0 5px;
+    list-style: none;
+    padding: 10pt;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    background: #BCD2EE;
+    border: 1px solid #e0e0e0;
+    text-decoration: none;
+    color:#000;
+}
+.metactive > a {
+    text-decoration: none;
+    list-style: none;
+}
+.metactive > a:hover {
+    color: #fff;
+}
+
+/*TABLES in bigbird page*/
+table.border, td.border, th.border {
+    border-collapse: collapse;
+    margin: 10px;
+    text-align: left;
+}
+td.borders {
+    padding-left:10px;
+    padding-right:10px;
+    background-color:#f1f0f1;
+}
+th.border {
+    padding-left:10px;
+    padding-right:10px;
+    background-color:#f1f6fb;
+    color:#66415E;
+    font-family:arial; font-weight:normal; font-size:10pt;
+}
+table.lines, td.lines, th.lines {
+    margin:10px;
+    text-align: left;
+    border-collapse: collapse;
+    font-family:arial; font-weight:normal; font-size:10pt;
+}
+td.lines {
+    padding-left:10px;
+    padding-right:10px;
+    width: 10em;
+    border:1px solid #66415E;
+    margin:10pt;
+}
+th.lines {
+    color:#66415E;
+    font-family:arial; font-weight:normal; font-size:10pt;
+}
+input[type="hidden"].port {
+    display: block;
+    font-size: 20px; 
+    font-weight: bold;
+    margin:20pt;
+}
+input[type="text"].forms {
+  display: block;
+  margin: 0;
+  width:10em;
+  max-width: 20em;
+  font-family: sans-serif;
+  font-size: 12px;
+}
