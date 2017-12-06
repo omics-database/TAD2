@@ -23,6 +23,7 @@ echo '
             <div class="links">
                 <a href="about.php">About</a>
                 <a href="import.php">Data Import</a>
+                <a href="sqlquery.php">SQL Query</a>
                 <a href="metadata.php">MetaData</a>
                 <a href="expression.php">Genes Expression</a>
                 <a href="variants.php">Variants</a>
@@ -52,6 +53,24 @@ function tmetadata() {
 }
 ?>
 
+<?php //Database pages
+function tsqlquery() {
+    theader();
+?>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8" />
+    <title>SQL Query</title>
+    <script type="text/javascript" src="/code.jquery.com/jquery-1.8.3.js"></script>
+    <script type="text/javascript">
+        function selectAll(source) {
+            checkboxes = document.getElementsByName('meta_data[]');
+            for(var i in checkboxes)
+            checkboxes[i].checked = source.checked;
+        }
+    </script>
+<?php
+}
+?>
+
 <?php //Genes Expression Pages
 function texpression() {
   theader();
@@ -62,7 +81,7 @@ function texpression() {
     <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
     <script src="jquery/jquery-1.11.3.min.js"></script>
     <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
-	<script language=JavaScript>
+    <script language=JavaScript>
         function reload(form) {
             var val=form.organism.options[form.organism.options.selectedIndex].value;
             self.location='?organism=' + val ;
@@ -80,7 +99,7 @@ function tfragment() {
     <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
     <script src="jquery/jquery-1.11.3.min.js"></script>
     <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
-	<script language=JavaScript>
+    <script language=JavaScript>
         function reload(form) {
             var val=form.organism.options[form.organism.options.selectedIndex].value;
             self.location='?quest=fragments&organism=' + val ;
@@ -101,7 +120,7 @@ function tvariants() {
     <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
     <script src="jquery/jquery-1.11.3.min.js"></script>
     <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
-	<script language=JavaScript>
+    <script language=JavaScript>
         function reload(form) {
             var val=form.organism.options[form.organism.options.selectedIndex].value;
             self.location='?organism=' + val ;
@@ -118,7 +137,7 @@ function tvarisum() {
     <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
     <script src="jquery/jquery-1.11.3.min.js"></script>
     <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
-	<script language=JavaScript>
+    <script language=JavaScript>
         function reload(form) {
             var val=form.organism.options[form.organism.options.selectedIndex].value;
             self.location='?quest=summary&organism=' + val ;
@@ -135,7 +154,7 @@ function tvarichrom() {
     <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
     <script src="jquery/jquery-1.11.3.min.js"></script>
     <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
-	<script language=JavaScript>
+    <script language=JavaScript>
         function reload(form) {
             var val=form.organism.options[form.organism.options.selectedIndex].value;
             self.location='?quest=chrom&organism=' + val ;

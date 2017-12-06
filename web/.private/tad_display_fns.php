@@ -79,31 +79,31 @@ function db_display($result){
 function db_delete($table, $db_conn) {
     if (!empty($_REQUEST['accept'])) {
         echo '';
-		$all_stat = $db_conn->query("select sampleid from Sample where sampleid = '".$_POST['samplename']."'");
+        $all_stat = $db_conn->query("select sampleid from Sample where sampleid = '".$_POST['samplename']."'");
         $total_rows = $all_stat->num_rows;
-		if ($total_rows >= 1) {
-			$darray = array('Sample Information');
-		
-			$all_stat = $db_conn->query("select sampleid from MapStats where sampleid = '".$_POST['samplename']."'");
-			$total_rows = $all_stat->num_rows; if ($total_rows >=1) { array_push($darray,'Alignment Information'); }
-		
-			$all_stat = $db_conn->query("select sampleid from GeneStats where sampleid = '".$_POST['samplename']."'");
-			$total_rows = $all_stat->num_rows; if ($total_rows >= 1) { array_push($darray,'Expression Information'); }
-		
-			$all_stat = $db_conn->query("select sampleid from VarSummary where sampleid = '".$_POST['samplename']."'");
-			$total_rows = $all_stat->num_rows; if ($total_rows >= 1) { array_push($darray,'Variant Information'); }
-		
-			echo '<form action="" method="post"><table class="lines">';
-			echo '<tr><td colspan="2"><center>Select the details to remove for sampleid "'.$_POST['samplename'].'"</center></td></tr>';
-			foreach ($darray as $index => $ddd) {
-				echo '<tr><th class="lines"><strong>'.$ddd.'</strong><th><td><input type="checkbox" name="data_delete[]" value="'.$index.'"></td></tr>';
-			}
-			echo '<tr><td colspan="2"><center><input type="submit" name="removed" class="import" value="are you sure?"/></center></td></tr>';
-			echo '</table></form>';
-		} else {print 'SampleID "'.$_POST['samplename'].'" does not exist in the database'; }
-	$count = count($darray);
-	return $darray;
-	}
+        if ($total_rows >= 1) {
+            $darray = array('Sample Information');
+        
+            $all_stat = $db_conn->query("select sampleid from MapStats where sampleid = '".$_POST['samplename']."'");
+            $total_rows = $all_stat->num_rows; if ($total_rows >=1) { array_push($darray,'Alignment Information'); }
+        
+            $all_stat = $db_conn->query("select sampleid from GeneStats where sampleid = '".$_POST['samplename']."'");
+            $total_rows = $all_stat->num_rows; if ($total_rows >= 1) { array_push($darray,'Expression Information'); }
+        
+            $all_stat = $db_conn->query("select sampleid from VarSummary where sampleid = '".$_POST['samplename']."'");
+            $total_rows = $all_stat->num_rows; if ($total_rows >= 1) { array_push($darray,'Variant Information'); }
+        
+            echo '<form action="" method="post"><table class="lines">';
+            echo '<tr><td colspan="2"><center>Select the details to remove for sampleid "'.$_POST['samplename'].'"</center></td></tr>';
+            foreach ($darray as $index => $ddd) {
+                echo '<tr><th class="lines"><strong>'.$ddd.'</strong><th><td><input type="checkbox" name="data_delete[]" value="'.$index.'"></td></tr>';
+            }
+            echo '<tr><td colspan="2"><center><input type="submit" name="removed" class="import" value="are you sure?"/></center></td></tr>';
+            echo '</table></form>';
+        } else {print 'SampleID "'.$_POST['samplename'].'" does not exist in the database'; }
+    $count = count($darray);
+    return $darray;
+    }
 }
 ?>
 
@@ -115,39 +115,39 @@ function db_accept($table, $db_conn) {
   ?>
         <form action="" method="post">
             <table class="lines">
-					<tr>
-						<th class="lines"><strong>Sample Name</strong></th>
-                        <td class="lines"><input type="hidden" class="port" name="samplename"<?php if(!empty($db_conn)){echo 'value="'.$_POST['samplename'].'"/>'.$_POST['samplename'];}?></td>	<!--sample name-->
-					</tr><tr>
-						<th class="lines"><strong>Sample description</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="sampledesc"<?php if(!empty($db_conn)){echo 'value="'.$_POST['sampledesc'].'"/>'.$_POST['sampledesc'];}?></td>	<!--sample desc -->
-					</tr><tr>
-						<th class="lines"><strong>Animal ID</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="animalid"<?php if(!empty($db_conn)){echo 'value="'.$_POST['animalid'].'"/>'.$_POST['animalid'];}?></td>	<!--animalid-->
-					</tr><tr>
-						<th class="lines"><strong>Animal Description</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="animaldesc"<?php if(!empty($db_conn)){echo 'value="'.$_POST['animaldesc'].'"/>'.$_POST['animaldesc'];}?></td>	<!--animalid-->
-					</tr><tr>
-						<th class="lines"><strong>Organism</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="organism"<?php if(!empty($db_conn)){echo 'value="'.$_POST['organism'].'"/>'.$_POST['organism'];}?></td>	<!--organism-->
-					</tr><tr>
-						<th class="lines"><strong>Organism Part</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="part"<?php if(!empty($db_conn)){echo 'value="'.$_POST['part'].'"/>'.$_POST['part'];}?></td>	<!--part-->
-					</tr><tr>
-						<th class="lines"><strong>First Name</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="firstname"<?php if(!empty($db_conn)){echo 'value="'.$_POST['firstname'].'"/>'.$_POST['firstname'];}?></td>	<!--first name-->
-					</tr><tr>
-						<th class="lines"><strong>Middle Initial</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="middle"<?php if(!empty($db_conn)){echo 'value="'.$_POST['middle'].'"/>'.$_POST['middle'];}?></td>	<!--middle-->
-					</tr><tr>
-						<th class="lines"><strong>Last Name</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="lastname"<?php if(!empty($db_conn)){echo 'value="'.$_POST['lastname'].'"/>'.$_POST['lastname'];}?></td>	<!--last-->
-					</tr><tr>
-						<th class="lines"><strong>Organization</strong></th>
-						<td class="lines"><input type="hidden" class="port" name="organization"<?php if(!empty($db_conn)){echo 'value="'.$_POST['organization'].'"/>'.$_POST['organization'];}?></td>	<!--org-->
-					</tr>
-					<tr><td colspan="2"><center><input type="submit" name="reset" class="import" value="reject"/><input type="submit" name="verified" class="import" value="accept"/></center></td></tr>
-				</table></form>
+                    <tr>
+                        <th class="lines"><strong>Sample Name</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="samplename"<?php if(!empty($db_conn)){echo 'value="'.$_POST['samplename'].'"/>'.$_POST['samplename'];}?></td> <!--sample name-->
+                    </tr><tr>
+                        <th class="lines"><strong>Sample description</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="sampledesc"<?php if(!empty($db_conn)){echo 'value="'.$_POST['sampledesc'].'"/>'.$_POST['sampledesc'];}?></td> <!--sample desc -->
+                    </tr><tr>
+                        <th class="lines"><strong>Animal ID</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="animalid"<?php if(!empty($db_conn)){echo 'value="'.$_POST['animalid'].'"/>'.$_POST['animalid'];}?></td>   <!--animalid-->
+                    </tr><tr>
+                        <th class="lines"><strong>Animal Description</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="animaldesc"<?php if(!empty($db_conn)){echo 'value="'.$_POST['animaldesc'].'"/>'.$_POST['animaldesc'];}?></td> <!--animalid-->
+                    </tr><tr>
+                        <th class="lines"><strong>Organism</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="organism"<?php if(!empty($db_conn)){echo 'value="'.$_POST['organism'].'"/>'.$_POST['organism'];}?></td>   <!--organism-->
+                    </tr><tr>
+                        <th class="lines"><strong>Organism Part</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="part"<?php if(!empty($db_conn)){echo 'value="'.$_POST['part'].'"/>'.$_POST['part'];}?></td>   <!--part-->
+                    </tr><tr>
+                        <th class="lines"><strong>First Name</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="firstname"<?php if(!empty($db_conn)){echo 'value="'.$_POST['firstname'].'"/>'.$_POST['firstname'];}?></td>    <!--first name-->
+                    </tr><tr>
+                        <th class="lines"><strong>Middle Initial</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="middle"<?php if(!empty($db_conn)){echo 'value="'.$_POST['middle'].'"/>'.$_POST['middle'];}?></td> <!--middle-->
+                    </tr><tr>
+                        <th class="lines"><strong>Last Name</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="lastname"<?php if(!empty($db_conn)){echo 'value="'.$_POST['lastname'].'"/>'.$_POST['lastname'];}?></td>   <!--last-->
+                    </tr><tr>
+                        <th class="lines"><strong>Organization</strong></th>
+                        <td class="lines"><input type="hidden" class="port" name="organization"<?php if(!empty($db_conn)){echo 'value="'.$_POST['organization'].'"/>'.$_POST['organization'];}?></td>   <!--org-->
+                    </tr>
+                    <tr><td colspan="2"><center><input type="submit" name="reset" class="import" value="reject"/><input type="submit" name="verified" class="import" value="accept"/></center></td></tr>
+                </table></form>
     <?php
     }
 }
@@ -263,7 +263,8 @@ function meta_display($result) {
     $meta = $result->fetch_field_direct(4); echo '<th class="metadata" id="' . $meta->name . '">Sample Description</th>';
     $meta = $result->fetch_field_direct(5); echo '<th class="metadata" id="' . $meta->name . '">Date</th>';
     $meta = $result->fetch_field_direct(6); echo '<th class="metadata" id="' . $meta->name . '">Gene Status</th>';
-    $meta = $result->fetch_field_direct(7); echo '<th class="metadata" id="' . $meta->name . '">Variant Status</th></tr>';
+    $meta = $result->fetch_field_direct(7); echo '<th class="metadata" id="' . $meta->name . '">RawCount Status</th>';
+    $meta = $result->fetch_field_direct(8); echo '<th class="metadata" id="' . $meta->name . '">Variant Status</th></tr>';
 
     for ($i = 0; $i < $num_rows; $i++) {
         if ($i % 2 == 0) {
@@ -294,7 +295,7 @@ function meta_display($result) {
 function metavw_display($result) {
     $num_rows = $result->num_rows;
     echo '<br><table class="metadata"><tr style="font-size:1.8vh;">';
-    echo '<th align="left" width=40pt bgcolor="white"></th><th class="metadata" colspan=5>Analysis Summary</th><th class="metadata" colspan=3 style="color:#306269;">Mapping Metadata</th><th class="metadata" colspan=2 style="color:#306937;">Expression Metadata</th><th class="metadata" colspan=3 style="color:#693062;">Variant Metadata</th></tr><tr>';
+    echo '<th align="left" width=40pt bgcolor="white"></th><th class="metadata" colspan=5>Analysis Summary</th><th class="metadata" colspan=3 style="color:#306269;">Mapping Metadata</th><th class="metadata" colspan=2 style="color:#306937;">Expression Metadata</th><th class="metadata" colspan=4 style="color:#693062;">Variant Metadata</th></tr><tr>';
     echo '<th align="left" width=40pt bgcolor="white"><font size="2" color="red">Select All</font><input type="checkbox" id="selectall" onClick="selectAll(this)" /></th>';
     $meta = $result->fetch_field_direct(0); echo '<th class="metadata" id="' . $meta->name . '">Sample Id</th>';
     $meta = $result->fetch_field_direct(1); echo '<th class="metadata" id="' . $meta->name . '">Total Fastq reads</th>';
@@ -305,10 +306,11 @@ function metavw_display($result) {
     $meta = $result->fetch_field_direct(6); echo '<th class="metadata" style="color:#306269;" id="' . $meta->name . '">Annotation file format</th>';
     $meta = $result->fetch_field_direct(7); echo '<th class="metadata" style="color:#306269;" id="' . $meta->name . '">Date</th>';
     $meta = $result->fetch_field_direct(8); echo '<th class="metadata" style="color:#306937;" id="' . $meta->name . '">Differential Expression Tool</th>';
-    $meta = $result->fetch_field_direct(9); echo '<th class="metadata" style="color:#306937;" id="' . $meta->name . '">Date</th>';
-    $meta = $result->fetch_field_direct(10); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Variant Tool</th>';
-    $meta = $result->fetch_field_direct(11); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Variant Annotation Tool</th>';
-    $meta = $result->fetch_field_direct(12); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Date</th>';
+    $meta = $result->fetch_field_direct(9); echo '<th class="metadata" style="color:#306937;" id="' . $meta->name . '">Read Counts Tool</th>';
+    $meta = $result->fetch_field_direct(10); echo '<th class="metadata" style="color:#306937;" id="' . $meta->name . '">Date</th>';
+    $meta = $result->fetch_field_direct(11); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Variant Tool</th>';
+    $meta = $result->fetch_field_direct(12); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Variant Annotation Tool</th>';
+    $meta = $result->fetch_field_direct(13); echo '<th class="metadata" style="color:#693062;" id="' . $meta->name . '">Date</th>';
     
 
     for ($i = 0; $i < $num_rows; $i++) {
