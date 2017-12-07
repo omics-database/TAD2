@@ -20,7 +20,7 @@ our $AUTHOR= '$ Author:Modupe Adetunji <amodupe@udel.edu> $';
 print "\n";
 our ($verbose, $efile, $help, $man, $nosql, $tmpout, $log);
 our ($dbh, $sth, $found, $count, @header, @row, $connect, $fastbit);
-our ($query, $output,$avgexp, $gene, $tissue, $organism, $genexp, $chrvar, $sample, $chromosome, $varanno, $region, $vcf, $exfpkm, $extpm);
+our ($query, $querynosql, $output,$avgexp, $gene, $tissue, $organism, $genexp, $chrvar, $sample, $chromosome, $varanno, $region, $vcf, $exfpkm, $extpm);
 my ($dbdata, $table, $outfile, $syntax, $status, $vcfsyntax);
 my $tmpname = rand(20);
 our (%ARRAYQUERY, %SAMPLE);
@@ -46,32 +46,81 @@ processArguments(); #Process input
 my %all_details = %{connection($connect, $default)}; #get connection details
 if (length($ibis) < 1){ ($ibis, $ardea) = ($all_details{'FastBit-ibis'}, $all_details{'FastBit-ardea'}); } #alternative for ibis and ardea location 
 if ($query) { #if user query mode selected
-    $query =~ s/^\s+|\s+$//g;
-    unless ($log) { $verbose and printerr "NOTICE:\t User query module selected\n"; }
-    undef %ARRAYQUERY;
-    $dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
-  $sth = $dbh->prepare($query); $sth->execute() or exit;
+    $query =~ s/^\s+|\s+$//g; $querynosql =~ s/^\s+|\s+$//g;
+    unless ($log) { 
+        $verbose and printerr "NOTICE:\t User query module selected\n";
+        if ($querynosql) { $verbose and printerr "NOTICE:\t NoSQL Query module selected\n"; }
+    }
 
-    $table = Text::TabularDisplay->new( @{ $sth->{NAME_uc} } );#header
-  @header = @{ $sth->{NAME_uc} };
+    undef %ARRAYQUERY;
     $count = 0;
-    while (my @row = $sth->fetchrow_array()) {
-        $count++; $table->add(@row); $ARRAYQUERY{$count} = [@row];
-    }    
-    unless ($count == 0){
-        if ($output) { #if output file is specified, else, result will be printed to the screen
-            $outfile = @{ open_unique($output) }[1];
-            open (OUT, ">$outfile") or die "ERROR:\t Output file $output can be not be created\n";
-            print OUT join("\t", @header),"\n";
-            foreach my $row (sort {$a <=> $b} keys %ARRAYQUERY) {
-                no warnings 'uninitialized';
-                print OUT join("\t", @{$ARRAYQUERY{$row}}),"\n";
-            } close OUT;
+    if ($querynosql){
+        my $newquery;
+        if ($query =~ /\swhere\s/) { $query =~ /select (.+) where/; $newquery = $1; }
+        else { $query =~ /select (.+)/; $newquery = $1;} 
+        $newquery =~ s/\s//g; $newquery = uc($newquery);
+        @header = split("\,",$newquery);
+        $fastbit = fastbit($all_details{'FastBit-path'}, $all_details{'FastBit-foldername'});  #connect to fastbit
+        $querynosql = $fastbit."/".$querynosql;
+        `$ibis -d $querynosql -q '$query' -o $nosql 2>>$efile`;
+        
+        $table = Text::TabularDisplay->new( @header );
+        my $found = `head -n 1 $nosql`;
+        if (length($found) > 1) {
+            open(IN,"<",$nosql);
+            while (<IN>){
+                chomp;
+                my @row = undef; 
+                my @all = split (/\, /, $_);
+                foreach (@all) { 
+                    $_ =~ s/^'|'$|^"|"$//g; #removing the quotation marks from the words 
+                    push @row, $_; 
+                } shift (@row); 
+                $count++; $table->add(@row); $ARRAYQUERY{$count} = [@row];
+            } close (IN);
+
+
+            if ($output) { #if output file is specified, else, result will be printed to the screen
+                $outfile = @{ open_unique($output) }[1];
+                open (OUT, ">$outfile") or die "ERROR:\t Output file $output can be not be created\n";
+                print OUT join("\t", @header),"\n";
+                foreach my $row (sort {$a <=> $b} keys %ARRAYQUERY) {
+                    no warnings 'uninitialized';
+                    print OUT join("\t", @{$ARRAYQUERY{$row}}),"\n";
+                } close OUT;
+            } else {
+                unless ($log) { printerr $table-> render, "\n"; } #print display
+            }
+            unless ($log) { $verbose and printerr "NOTICE:\t Summary: $count rows in result\n"; }
         } else {
-            unless ($log) { printerr $table-> render, "\n"; } #print display
+            unless ($log) { printerr "NOTICE:\t No Results based on search criteria: '$query' in '$querynosql' \n"; }
         }
-        unless ($log) { $verbose and printerr "NOTICE:\t Summary: $count rows in result\n"; }
-    } else { unless ($log) { printerr "NOTICE:\t No Results based on search criteria: '$query' \n"; } }
+         `rm -rf $nosql`;
+    } else { #end of NoSQL query option
+        
+        $dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
+        $sth = $dbh->prepare($query); $sth->execute() or exit;
+
+        $table = Text::TabularDisplay->new( @{ $sth->{NAME_uc} } );#header
+        @header = @{ $sth->{NAME_uc} };
+        while (my @row = $sth->fetchrow_array()) {
+            $count++; $table->add(@row); $ARRAYQUERY{$count} = [@row];
+        }    
+        unless ($count == 0){
+            if ($output) { #if output file is specified, else, result will be printed to the screen
+                $outfile = @{ open_unique($output) }[1];
+                open (OUT, ">$outfile") or die "ERROR:\t Output file $output can be not be created\n";
+                print OUT join("\t", @header),"\n";
+                foreach my $row (sort {$a <=> $b} keys %ARRAYQUERY) {
+                    no warnings 'uninitialized';
+                    print OUT join("\t", @{$ARRAYQUERY{$row}}),"\n";
+                } close OUT;
+            } else {
+                unless ($log) { printerr $table-> render, "\n"; } #print display
+            }
+            unless ($log) { $verbose and printerr "NOTICE:\t Summary: $count rows in result\n"; }
+        } else { unless ($log) { printerr "NOTICE:\t No Results based on search criteria: '$query' \n"; } }
+    } #end of MySQL query option
 } #end of user query module
 
 if ($dbdata){ #if db 2 data mode selected
@@ -701,7 +750,7 @@ unless ($log) {
 
 sub processArguments {
     my @commandline = @ARGV;
-    GetOptions('verbose|v'=>\$verbose, 'help|h'=>\$help, 'man|m'=>\$man, 'query=s'=>\$query, 'db2data'=>\$dbdata, 'o|output'=>\$output,'w'=>\$log,
+    GetOptions('verbose|v'=>\$verbose, 'help|h'=>\$help, 'man|m'=>\$man, 'query=s'=>\$query, 'nosql=s'=>\$querynosql, 'db2data'=>\$dbdata, 'o|output'=>\$output,'w'=>\$log,
                          'avgexp'=>\$avgexp, 'gene=s'=>\$gene, 'tissue=s'=>\$tissue, 'species=s'=>\$organism, 'genexp'=>\$genexp, 'fpkm'=>\$exfpkm,
                          'tpm'=>\$extpm, 'vcf'=>\$vcf, 'samples|sample=s'=>\$sample, 'chrvar'=>\$chrvar, 'chromosome=s'=>\$chromosome,
                          'varanno'=>\$varanno,'region=s'=>\$region) or pod2usage ();
@@ -1086,6 +1135,9 @@ sub MTD {
     Arguments to retrieve database information
             --query                     perform sql queries directly to the mysql database
             --db2data                   perform configured modules 
+
+        Arguments for db2data
+            --nosql                    Query FastBit datafiles (either: gene-information, gene_count-information, or variant-information)
 
         Arguments for db2data
             --avgexp                    average expression (fpkm/tpm) values of specified genes
