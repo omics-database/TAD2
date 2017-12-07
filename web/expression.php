@@ -27,6 +27,7 @@
 			$_SESSION[$table]['tissue'] = $_POST['tissue'];
 			$_SESSION[$table]['organism'] = $_POST['organism'];
 			$_SESSION[$table]['search'] = $_POST['search'];
+			$_SESSION[$table]['genexp'] = $_POST['genexp'];
 		}		
 ?>
 <div class="question">
@@ -60,6 +61,14 @@
 			}
 		?>
 		</select></p>
+	
+	<p class="pages"><span>Expression Values: </span>
+	<select name="genexp" id="genexp">
+		<option value="" selected disabled >Select Expression Values</option>
+		<option value='-fpkm'>FPKM</option>
+		<option value='-tpm'>TPM</option>
+		</select></p>
+	
 <center><input type="submit" name="salute" value="View Results"></center>
 </form>
 </div>
@@ -69,18 +78,18 @@
 		if (!empty($_POST['salute'])) {
 			echo '<div class="menu">Results</div><div class="xtra">';
 			$queryforoutput = "yes";
-			$output = "OUTPUT/avgfpkm_".$explodedate.".txt";
+			$output = "OUTPUT/avgexp_".$explodedate.".txt";
 			if (!empty($_POST['tissue'])) { foreach ($_POST["tissue"] as $tissue){ $tissues .= $tissue. ","; } $tissues = rtrim($tissues,","); }
 			if (!empty($_POST['search'])) { $genenames = rtrim($_POST['search'],","); }
 			
 			if ((!empty($_POST['tissue'])) && (!empty($_POST['organism'])) && (!empty($_POST['search']))) {          
-				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --samples '$tissues' -o $output";
+				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp $_POST[genexp] -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --samples '$tissues' -o $output";
 			} elseif ((!empty($_POST['tissue'])) && (!empty($_POST['organism']))) {          
-				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp -species '$_POST[organism]' --samples '$tissues' -o $output";
+				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp $_POST[genexp] -species '$_POST[organism]' --samples '$tissues' -o $output";
 			} elseif ((!empty($_POST['search'])) && (!empty($_POST['organism']))) {          
-				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' -o $output";
+				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp $_POST[genexp] -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' -o $output";
 			} elseif (!empty($_POST['organism'])) {          
-				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp -species '$_POST[organism]' -o $output";
+				$pquery = "perl $basepath/tad-export.pl -w -db2data -genexp $_POST[genexp] -species '$_POST[organism]' -o $output";
 			}else {
 				$queryforoutput = "no";
 				echo "<center>Forgot something ?</center>";
@@ -163,6 +172,13 @@
 			}
 		?>
 		</select></p>
+	
+	<p class="pages"><span>Expression Values: </span>
+	<select name="genexp" id="genexp">
+		<option value="" selected disabled >Select Expression Values</option>
+		<option value='-fpkm'>FPKM</option>
+		<option value='-tpm'>TPM</option>
+		</select></p>
 <center><input type="submit" name="salute" value="View Results"></center>
 </form>
 </div>
@@ -173,10 +189,10 @@
 	if (!empty($_POST['salute'])) {
 		echo '<div class="menu">Results</div><div class="xtra">';
 		if ((!empty($_POST['tissue'])) && (!empty($_POST['organism'])) && (!empty($_POST['search']))) {          
-			$output = "OUTPUT/avgfpkm_".$explodedate.".txt";
+			$output = "OUTPUT/avgexp_".$explodedate.".txt";
 			foreach ($_POST["tissue"] as $tissue){ $tissues .= $tissue. ","; } $tissues = rtrim($tissues,",");
 			$genenames = rtrim($_POST['search'],",");
-			$pquery = "perl $basepath/tad-export.pl -w -db2data -avgexp -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --tissue '$tissues' -o $output";
+			$pquery = "perl $basepath/tad-export.pl -w -db2data -avgexp $_POST[genexp] -species '$_POST[organism]' --gene '".strtoupper("$genenames")."' --tissue '$tissues' -o $output";
 			//print $pquery;
 			shell_exec($pquery);
 			if (file_exists($output)){
