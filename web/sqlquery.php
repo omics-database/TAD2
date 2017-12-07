@@ -17,8 +17,13 @@ if ($_GET['quest'] == 'nosql') {
 <table width=100%><tr><td width=280pt>
 		<div class="metamenu"><a href="sqlquery.php">Relational Database</a></div>
 		<div class="metactive"><a href="sqlquery.php?quest=nosql">Non-relational Database</a></div>
-	</td><td valign="top">
-		<div class="dift"><p>Perform NoSQL DML on the 3 types of data files. Variant, Genes expression, Gene Raw Count.<br>
+	</td><td valign="top"><div class="dift">
+		<table><tr><td>Perform NoSQL DML on the three data directories:</td><td>
+	<ol type="i"><li> Gene expression information </li>
+	<li> Gene Raw Counts information </li>
+	<li> Variants information </li></ol></td></tr><tr><td colspan="2" align="right">
+	<font size="2pt">For help with writing SQL select statements 
+visit <a href="https://sdm.lbl.gov/fastbit/doc/ibisCommandLine.html#select" target="_blank">IBIS</a></font></td></tr></table>
 	<!-- QUERY -->
 	<form action="" method="post">
     <p class="pages"><span>Select NoSQL data folder: </span>
@@ -118,15 +123,20 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
   	if ( !empty($db_conn) && (!empty($_POST['order']) || !empty($_POST['search'])) ) { //make sure an options is selected
 		echo '<div class="menu">Output</div><div class="xtra">';
 		echo '<form action="" method="post">';
-    	echo '<input type="submit" name="downloadfiles" value="Download the results below"/>';
 		$result = $db_conn->query($_SESSION[$table]['select']);
 		$result2 = "null";
 		$output = "OUTPUT/query_".$explodedate.".txt";
-        about_display($result, $result2);
-		$pquery = "perl $basepath/tad-export.pl -w -query '".$_SESSION[$table]['select']."' -o $output";
-		if (isset($_POST['downloadfiles']) && !empty($_SESSION[$table]['select']) ){ 
-			shell_exec($pquery);
-        	print("<script>location.href='results.php?file=$output&name=query.txt'</script>");
+        	$num_results = $result->num_rows;
+		if ($num_results == 0) {
+			echo '<center>No result based on search criteria.</center>';
+		} else {
+			echo '<input type="submit" name="downloadfiles" value="Download the results below"/>';
+			about_display($result, $result2);
+			$pquery = "perl $basepath/tad-export.pl -w -query '".$_SESSION[$table]['select']."' -o $output";
+			if (isset($_POST['downloadfiles']) && !empty($_SESSION[$table]['select']) ){ 
+				shell_exec($pquery);
+	        	print("<script>location.href='results.php?file=$output&name=query.txt'</script>");
+			}
 		}
 	}
 } # end of relational database
