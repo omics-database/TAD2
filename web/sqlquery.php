@@ -10,7 +10,8 @@ if ($_GET['quest'] == 'nosql') {
 	$table = "nosql";
 	@$fastbit=$_GET['fastbit'];
 	if(!empty($_REQUEST['order'])) {
-		$_SESSION[$table]['select'] = str_replace("'",'"',$_POST['search']);
+		$string = str_replace("'",'"',$_POST['search']);
+		$_SESSION[$table]['select'] = str_replace("/\n/g", "", $string);
 		$_SESSION[$table]['fastbit'] = $_POST['fastbit'];
 	}
 ?>
@@ -35,9 +36,11 @@ visit <a href="https://sdm.lbl.gov/fastbit/doc/ibisCommandLine.html#select" targ
 	</select></p>
 <?PHP
 	if (!empty($_SESSION[$table]['select'])) {
-		echo '<input type="text" size="80%" name="search" value=' . "'". $_SESSION[$table]["select"] . "'/>";
+		echo '<textarea name="search" rows="3" cols="80">'.$_SESSION[$table]["select"].'</textarea>';
+//<input type="text" size="80%" name="search" value=' . "'". $_SESSION[$table]["select"] . "'/>";
 	} else {
-		echo '<input type="text" size="80%" name="search" placeholder="Specify SQL syntax for NoSQL database"/>';
+		echo '<textarea name="search" rows="3" cols="80"></textarea>';
+//'<input type="text" size="80%" name="search" placeholder="Specify SQL syntax for NoSQL database"/>';
 	}
 ?>
 	</p>
