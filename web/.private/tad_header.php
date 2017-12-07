@@ -60,12 +60,15 @@ function tsqlquery() {
     <meta http-equiv="content-type" content="text/html;charset=utf-8" />
     <title>SQL Query</title>
     <script type="text/javascript" src="/code.jquery.com/jquery-1.8.3.js"></script>
-    <script type="text/javascript">
-        function selectAll(source) {
-            checkboxes = document.getElementsByName('meta_data[]');
-            for(var i in checkboxes)
-            checkboxes[i].checked = source.checked;
+    <link href="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.css" rel="stylesheet" type="text/css" />
+    <script src="jquery/jquery-1.11.3.min.js"></script>
+    <script src="jquery/jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
+    <script language=JavaScript>
+        function reload(form) {
+            var val=form.fastbit.options[form.fastbit.options.selectedIndex].value;
+            self.location='?quest=nosql&fastbit=' + val ;
         }
+    </script>
     </script>
 <?php
 }
