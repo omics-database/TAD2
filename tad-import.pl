@@ -5,6 +5,8 @@ use Pod::Usage;
 use Getopt::Long;
 use File::Spec;
 use File::Basename;
+use threads;
+use Thread::Queue;
 use POSIX;
 use Cwd qw(abs_path);
 use lib dirname(abs_path $0) . '/lib';
@@ -30,14 +32,16 @@ our (@allgeninfo);
 my ($str, $ann, $ref, $seq,$allstart, $allend) = (0,0,0,0,0,0); #for log file
 my ($refgenome, $refgenomename, $stranded, $sequences, $annotationfile, $mparameters, $gparameters, $cparameters, $vparameters); #for annotation file
 my $additional;
+
 #genes import
 our ($bamfile, $alignfile, $version, $readcountfile, $genesfile, $deletionsfile, $insertionsfile, $transcriptsgtf, $junctionsfile, $variantfile, $vepfile, $annofile);
 our ($kallistofile, $kallistologfile, $salmonfile, $salmonlogfile);
 our ($total, $mapped, $alignrate, $deletions, $insertions, $junctions, $genes, $mappingtool, $annversion, $diffexpress, $counttool);
 my (%ARFPKM,%CHFPKM, %BEFPKM, %CFPKM, %DFPKM, %TPM, %cfpkm, %dfpkm, %tpm, %DHFPKM, %DLFPKM, %dhfpkm, %dlfpkm, %ALL);
+my (%HASHDBVARIANT, @VAR, @threads, $queue);
 #variant import
 our ( %VCFhash, %DBSNP, %extra, %VEPhash, %ANNOhash );
-our ($varianttool, $verd, $variantclass);
+our ($varianttool, $verd, $variantclass, $vcount);
 our ($itsnp,$itindel,$itvariants) = (0,0,0);
 
 #nosql append
@@ -1471,7 +1475,9 @@ sub DBVARIANT {
 
 	#VARIANT_RESULTS
 	printerr "NOTICE:\t Importing $varianttool variant information for $_[1] to VarResult table ...";
-			
+	
+	#converting to threads
+	undef %HASHDBVARIANT; my $ii = 0;
 	foreach my $abc (sort keys %VCFhash) {
 		foreach my $def (sort {$a <=> $b} keys %{ $VCFhash{$abc} }) {
 			my @vcf = split('\|', $VCFhash{$abc}{$def});
@@ -1484,23 +1490,44 @@ sub DBVARIANT {
 			elsif (length $vcf[0] == length $vcf[1]){ $itvariants++; $itsnp++; $variantclass = "SNV"; }
 			elsif (length $vcf[0] < length $vcf[1]) { $itvariants++; $itindel++; $variantclass = "insertion"; }
 			else { $itvariants++; $itindel++; $variantclass = "deletion"; }
-
-			#to variant_result
-			$sth = $dbh->prepare("insert into VarResult ( sampleid, chrom, position, refallele, altallele, quality, variantclass, zygosity ) values (?,?,?,?,?,?,?,?)");
-			$sth ->execute($_[1], $abc, $def, $vcf[0], $vcf[1], $vcf[2], $variantclass, $vcf[3]) or die "\nERROR:\t Complication in VarResult table, consult documentation\n";
+		
+			#putting variants info into a hash table
+			my @hashdbvariant = ($_[1], $abc, $def, $vcf[0], $vcf[1], $vcf[2], $variantclass, $vcf[3]); 
+			$HASHDBVARIANT{$ii++} = [@hashdbvariant];
 		}
 	}
+		
 	#update variantsummary with counts
 	$sth = $dbh->prepare("update VarSummary set totalvariants = $itvariants, totalsnps = $itsnp, totalindels = $itindel where sampleid= '$_[1]'");
 	$sth ->execute();
+
+	my @hashdetails = keys %HASHDBVARIANT; #print "First $#hashdetails\n"; die;
+	undef @VAR; undef @threads;
+	push @VAR, [ splice @hashdetails, 0, 200 ] while @hashdetails; #sub the files to multiple subs
+	$queue = new Thread::Queue();
+	my $builder=threads->create(\&main); #create thread for each subarray into a thread 
+	push @threads, threads->create(\&dbvarprocessor) for 1..5; #execute 5 threads
+	$builder->join; #join threads
+	foreach (@threads){$_->join;}
+
+	#update variantsummary with counts
 	$sth = $dbh->prepare("update VarSummary set status = 'done' where sampleid= '$_[1]'");
 	$sth ->execute();
 	$sth->finish();
+}
+sub dbvarprocessor { my $query; while ($query = $queue->dequeue()){ dbvarinput(@$query); } }
+sub dbvarinput {
+	foreach my $a (@_) { 
+		$dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
+		$sth = $dbh->prepare("insert into VarResult ( sampleid, chrom, position, refallele, altallele, quality, variantclass, zygosity ) values (?,?,?,?,?,?,?,?)");
+		$sth -> execute(@{$HASHDBVARIANT{$a}}) or die "\nERROR:\t Complication in VarResult table, consult documentation\n";
+	}
 }
 
 sub VEPVARIANT {
 	my ($chrom, $position);
 	if($_[0]){ open(VEP,$_[0]) or die ("\nERROR:\t Can not open vep file $_[0]\n"); } else { die ("\nERROR:\t Can not find VEP file. make sure vep file with suffix '.vep.txt' is present\n"); }
+	my $ii = 0; undef %HASHDBVARIANT;
 	while (<VEP>) {
 		chomp;
 		unless (/^\#/) {
@@ -1531,46 +1558,71 @@ sub VEPVARIANT {
 					unless ( $VEPhash{$locate} eq $locate ){ die "\nERROR:\t Duplicate annotation in VEP file, consult documentation\n"; }
 				} else {
 					$VEPhash{$locate} = $locate;
-					$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, source, geneid, genename, transcript, feature, genetype,proteinposition, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?,?,?)");
 					if (exists $extra{'SYMBOL'}) { $extra{'SYMBOL'} = uc($extra{'SYMBOL'}); }
-					$sth ->execute($_[1], $chrom, $position, $consequence, $extra{'SOURCE'}, $geneid, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'} , $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
-					$sth = $dbh->prepare("update VarResult set variantclass = '$extra{'VARIANT_CLASS'}' where sampleid = '$_[1]' and chrom = '$chrom' and position = $position"); $sth ->execute() or die "\nERROR:\t Complication in updating VarResult table, consult documentation\n";
-					
-					#NOSQL portion
-					@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$chrom' and position = $position and consequence = '$consequence' and geneid = '$geneid' and proteinposition = '$pposition'");
-					$showcase = undef; 
-					foreach my $variables (0..$#nosqlrow){
-						if ($variables == 2) { $nosqlrow[$variables] = $dbsnp; }
-						if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
-							$nosqlrow[$variables] = "NULL";
-						}
-						if ($variables < 17) {
-							$nosqlrow[$variables] =~ s/^'|'$//g;
-							$showcase .= "'$nosqlrow[$variables]',";
-						}
-						else {
-							$showcase .= "$nosqlrow[$variables],";
-						}
-					}
-					chop $showcase; $showcase .= "\n";
-					open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
-					undef %extra; #making sure extra is blank
+					my @hashdbvep = ($_[1], $chrom, $position, $extra{'VARIANT_CLASS'}, $consequence, $geneid, $pposition, $dbsnp, $extra{'SOURCE'}, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'}, $aminoacid, $codons);
+					$HASHDBVARIANT{$ii++} = [@hashdbvep];
 					$DBSNP{$chrom}{$position} = $dbsnp; #updating dbsnp	
 				}
 			}
 		} else { if (/API (version \d+)/){ $annversion = $1;} } #getting VEP version
 	}
 	close VEP;
-	foreach my $chrom (sort keys %DBSNP) {
-		foreach my $position (sort keys %{ $DBSNP{$chrom} }) {
-			$sth = $dbh->prepare("update VarResult set dbsnpvariant = '$DBSNP{$chrom}{$position}' where sampleid = '$_[1]' and chrom = '$chrom' and position = $position"); $sth ->execute();
-		}
-	}
+	
+	#update convert to threads
+	my @hashdetails = keys %HASHDBVARIANT; #print "First $#hashdetails\n"; die;
+	undef @VAR; undef @threads;
+	push @VAR, [ splice @hashdetails, 0, 200 ] while @hashdetails; #sub the files to multiple subs
+	$queue = new Thread::Queue();
+	my $builder=threads->create(\&main); #create thread for each subarray into a thread 
+	push @threads, threads->create(\&dbveprocessor) for 1..5; #execute 5 threads
+	$builder->join; #join threads
+	foreach (@threads){$_->join;}
+	`cat $vnosql* >.temp$vnosql; rm -rf $vnosql*; mv .temp$vnosql $vnosql;`; #merging all files
+	
 	$sth = $dbh->prepare("update VarSummary set annversion = 'VEP $annversion' where sampleid = '$_[1]'"); $sth ->execute();
+}
+sub dbveprocessor { my $query; while ($query = $queue->dequeue()){ dbvepinput(@$query); } }
+sub dbvepinput {
+	$vcount++;
+	my $newvcount = $vnosql."$vcount";
+	foreach my $a (@_) { 
+		$dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
+		$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, feature, genetype, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+		my ($vsample,$vchrom, $vposition, $vclass, $vconsequence, $vgeneid, $vpposition, $vdbsnp) = @{$HASHDBVARIANT{$a}}[0..7];
+		my @vrest = @{$HASHDBVARIANT{$a}}[8..$#{$HASHDBVARIANT{$a}}];
+		$sth->execute($vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
+		$sth = $dbh->prepare("update VarResult set variantclass = '$vclass' where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition"); $sth ->execute() or die "\nERROR:\t Complication in updating VarResult table, consult documentation\n";
+		
+		#DBSNP
+		if (exists $DBSNP{$vchrom}{$vposition}) {
+			$sth = $dbh->prepare("update VarResult set dbsnpvariant = '$vdbsnp' where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition"); $sth ->execute();
+			delete $DBSNP{$vchrom}{$vposition};
+		}
+		#NOSQL portion
+		@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition and consequence = '$vconsequence' and geneid = '$vgeneid' and proteinposition = '$vpposition'");
+		$showcase = undef; 
+		foreach my $variables (0..$#nosqlrow){
+			if ($variables == 2) { $nosqlrow[$variables] = $vdbsnp; }
+			if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
+				$nosqlrow[$variables] = "NULL";
+			}
+			if ($variables < 17) {
+				$nosqlrow[$variables] =~ s/^'|'$//g;
+				$showcase .= "'$nosqlrow[$variables]',";
+			}
+			else {
+				$showcase .= "$nosqlrow[$variables],";
+			}
+		}
+		chop $showcase; $showcase .= "\n";
+		open (NOSQL, ">>$newvcount"); print NOSQL $showcase; close NOSQL; #end of nosql portion
+		undef %extra; #making sure extra is blank
+	}
 }
 
 sub ANNOVARIANT {
 	my (%REFGENE, %ENSGENE, %CONTENT);
+	my $ii = 0; undef %HASHDBVARIANT;
 	if($_[0]){ open(ANNOVAR,$_[0]) or die ("\nERROR:\t Can not open annovar file $_[0]\n"); } else { die ("\nERROR:\t Can not find annovar file. make sure annovar file with suffix '.multianno.txt' is present\n"); }
 	my @annocontent = <ANNOVAR>; close ANNOVAR; 
 	my @header = split("\t", lc($annocontent[0]));
@@ -1639,25 +1691,29 @@ sub ANNOVARIANT {
 				unless ( $ANNOhash{$locate} eq $locate ){ die "\nERROR:\t Duplicate annotation in ANNOVAR file, contact $AUTHOR\n"; }
 			} else {
 				$ANNOhash{$locate} = $locate;
-				$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, source, geneid, transcript,proteinposition, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?)");
-				$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'Ensembl', $CONTENT{$newno}{$ENSGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation \n";
+				my @hashdbanno = ($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, $CONTENT{$newno}{$ENSGENE{'gene'}}, $pposition, 'Ensembl', $transcript, $aminoacid, $codons);
+				#$_[1], $chrom, $position, $extra{'VARIANT_CLASS'}, $consequence, $geneid, $pposition, $dbsnp, $extra{'SOURCE'}, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'}, $aminoacid, $codons);
+				$HASHDBVARIANT{$ii++} = [@hashdbanno];
+				#	
+				#	$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?)");
+				#$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'Ensembl', $CONTENT{$newno}{$ENSGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation \n";
 
-				#NOSQL portion
-				@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$ENSGENE{'gene'}}' and proteinposition = '$pposition'");
-				$showcase = undef; 
-				foreach my $variables (0..$#nosqlrow) {
-					if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
-						$nosqlrow[$variables] = "NULL";
-					}
-					if ($variables < 17) {
-						$showcase .= "'$nosqlrow[$variables]',";
-					}
-					else {
-						$showcase .= "$nosqlrow[$variables],";
-					}
-				}
-				chop $showcase; $showcase .= "\n";
-				open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
+				##NOSQL portion
+				#@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$ENSGENE{'gene'}}' and proteinposition = '$pposition'");
+				#$showcase = undef; 
+				#foreach my $variables (0..$#nosqlrow) {
+				#	if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
+				#		$nosqlrow[$variables] = "NULL";
+				#	}
+				#	if ($variables < 17) {
+				#		$showcase .= "'$nosqlrow[$variables]',";
+				#	}
+				#	else {
+				#		$showcase .= "$nosqlrow[$variables],";
+				#	}
+				#}
+				#chop $showcase; $showcase .= "\n";
+				#open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
 			} #end if annohash locate
 		} # end foreach looking at content
 	} #end if ENSGENE
@@ -1703,30 +1759,78 @@ sub ANNOVARIANT {
 				unless ( $ANNOhash{$locate} eq $locate ){ die "\nERROR:\t Duplicate annotation in ANNOVAR file, contact $AUTHOR\n"; }
 			} else {
 				$ANNOhash{$locate} = $locate;
-				$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, source, genename, geneid, transcript,proteinposition, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?)");
 				if (exists $CONTENT{$newno}{$REFGENE{'gene'}}) { $CONTENT{$newno}{$REFGENE{'gene'}} = uc($CONTENT{$newno}{$REFGENE{'gene'}}); }
-				$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'RefSeq', $CONTENT{$newno}{$REFGENE{'gene'}}, $CONTENT{$newno}{$REFGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
+				my @hashdbanno = ($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, $CONTENT{$newno}{$REFGENE{'gene'}}, $pposition, 'RefSeq', $CONTENT{$newno}{$REFGENE{'gene'}}, $transcript, $aminoacid, $codons);
+				#$_[1], $chrom, $position, $extra{'VARIANT_CLASS'}, $consequence, $geneid, $pposition, $dbsnp, $extra{'SOURCE'}, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'}, $aminoacid, $codons);
+				$HASHDBVARIANT{$ii++} = [@hashdbanno];
+				#$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?)");
+				#if (exists $CONTENT{$newno}{$REFGENE{'gene'}}) { $CONTENT{$newno}{$REFGENE{'gene'}} = uc($CONTENT{$newno}{$REFGENE{'gene'}}); }
+				#$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'RefSeq', $CONTENT{$newno}{$REFGENE{'gene'}}, $CONTENT{$newno}{$REFGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
 
-				#NOSQL portion
-				@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$REFGENE{'gene'}}' and proteinposition = '$pposition'");
-				$showcase = undef; 
-				foreach my $variables (0..$#nosqlrow){
-					if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
-						$nosqlrow[$variables] = "NULL";
-					}
-					if ($variables < 17) {
-						$showcase .= "'$nosqlrow[$variables]',";
-					}
-					else {
-						$showcase .= "$nosqlrow[$variables],";
-					}
-				}
-				chop $showcase; $showcase .= "\n";
-				open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
+				##NOSQL portion
+				#@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$REFGENE{'gene'}}' and proteinposition = '$pposition'");
+				#$showcase = undef; 
+				#foreach my $variables (0..$#nosqlrow){
+				#	if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
+				#		$nosqlrow[$variables] = "NULL";
+				#	}
+				#	if ($variables < 17) {
+				#		$showcase .= "'$nosqlrow[$variables]',";
+				#	}
+				#	else {
+				#		$showcase .= "$nosqlrow[$variables],";
+				#	}
+				#}
+				#chop $showcase; $showcase .= "\n";
+				#open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
 			} #end if annohash locate
 		} # end foreach looking at content
 	} #end if REFGENE
+	
+	#update convert to threads
+	my @hashdetails = keys %HASHDBVARIANT; #print "First $#hashdetails\n"; die;
+	undef @VAR; undef @threads;
+	push @VAR, [ splice @hashdetails, 0, 200 ] while @hashdetails; #sub the files to multiple subs
+	$queue = new Thread::Queue();
+	my $builder=threads->create(\&main); #create thread for each subarray into a thread 
+	push @threads, threads->create(\&dbannorocessor) for 1..5; #execute 5 threads
+	$builder->join; #join threads
+	foreach (@threads){$_->join;}
+	`cat $vnosql* >.temp$vnosql; rm -rf $vnosql*; mv .temp$vnosql $vnosql;`; #merging all files
+	
 	$sth = $dbh->prepare("update VarSummary set annversion = 'ANNOVAR' where sampleid = '$_[1]'"); $sth ->execute(); #update database annversion :  ANNOVAR
+}
+sub dbannorocessor { my $query; while ($query = $queue->dequeue()){ dbannoinput(@$query); } }
+sub dbannoinput {
+	$vcount++;
+	my $newvcount = $vnosql."$vcount";
+	foreach my $a (@_) { 
+		$dbh = mysql($all_details{'MySQL-databasename'}, $all_details{'MySQL-username'}, $all_details{'MySQL-password'}); #connect to mysql
+		if ($#{$HASHDBVARIANT{$a}} == 9) { $sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?)"); }
+		else { $sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?)"); }
+		#print $#{$HASHDBVARIANT{$a}},"\n";
+		my ($vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition) = @{$HASHDBVARIANT{$a}}[0..5];
+		my @vrest = @{$HASHDBVARIANT{$a}}[6..$#{$HASHDBVARIANT{$a}}];
+		$sth->execute($vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
+
+		#NOSQL portion
+		@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition and consequence = '$vconsequence' and geneid = '$vgeneid' and proteinposition = '$vpposition'");
+		$showcase = undef;
+		foreach my $variables (0..$#nosqlrow){
+			if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
+				$nosqlrow[$variables] = "NULL";
+			}
+			if ($variables < 17) {
+				$showcase .= "'$nosqlrow[$variables]',";
+			}
+			else {
+				$showcase .= "$nosqlrow[$variables],";
+			}
+		}
+		chop $showcase; $showcase .= "\n";
+		open (NOSQL, ">>$newvcount"); print NOSQL $showcase; close NOSQL; #end of nosql portion
+		undef %extra; #making sure extra is blank
+	}
 }
 
 sub NOSQL {
@@ -1746,6 +1850,18 @@ sub NOSQL {
 
 	#declare done
 	printerr " Done\n";
+}
+
+sub main {
+  foreach my $count (0..$#VAR) {
+		while(1) {
+			if ($queue->pending() < 100) {
+				$queue->enqueue($VAR[$count]);
+				last;
+			}
+		}
+	}
+	foreach(1..5) { $queue-> enqueue(undef); }
 }
 #--------------------------------------------------------------------------------
 
