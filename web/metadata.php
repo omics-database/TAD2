@@ -1,7 +1,10 @@
 <?php				
 	session_start();
 	require_once('all_fns.php');
-	tmetadata(); 
+	tmetadata();
+	if (empty($_POST['rnull'])) { $_POST['rnull'] = ""; }
+	if (empty($_POST['cnull'])) { $_POST['cnull'] = ""; }
+	if (empty($_POST['vnull'])) { $_POST['vnull'] = ""; }
 ?>
 <?PHP
 	//Database Attributes
@@ -211,7 +214,7 @@
 			<option value="asc">ascending</option>
 			<?php
 				if (empty($_SESSION[$table]['dir'])) {
-					$_SESSION[$table]['asc'] = "asc";
+					$_SESSION[$table]['dir'] = "asc";
 				}
 				if ($_SESSION[$table]['dir'] == "desc") {
 					echo '<option selected value="desc">descending</option>';
@@ -330,3 +333,4 @@
 
 </body>
 </html>
+

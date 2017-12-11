@@ -2,7 +2,7 @@
 	session_start();
 	require_once('all_fns.php');
 	tsqlquery(); 
-
+	if (empty($_GET['quest'])) { $_GET['quest'] = ""; }
 ?>
 <div class="menu">TransAtlasDB Database Query</div>
 <?PHP
@@ -34,13 +34,12 @@ visit <a href="https://sdm.lbl.gov/fastbit/doc/ibisCommandLine.html#select" targ
 		<option value='gene_count-information'<?php if (@$fastbit=='gene_count-information') echo 'selected="selected"'; ?> >Gene-counts Information</option>
 		<option value='variant-information'<?php if (@$fastbit=='variant-information') echo 'selected="selected"'; ?> >Variant Information</option>
 	</select></p>
+		<p class="pages">
 <?PHP
 	if (!empty($_SESSION[$table]['select'])) {
 		echo '<textarea name="search" rows="3" cols="80">'.$_SESSION[$table]["select"].'</textarea>';
-//<input type="text" size="80%" name="search" value=' . "'". $_SESSION[$table]["select"] . "'/>";
 	} else {
-		echo '<textarea name="search" rows="3" cols="80"></textarea>';
-//'<input type="text" size="80%" name="search" placeholder="Specify SQL syntax for NoSQL database"/>';
+		echo '<textarea name="search" rows="3" cols="80" placeholder="Specify select syntax for NoSQL database ..."></textarea>';
 	}
 ?>
 	</p>
@@ -76,10 +75,6 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 		shell_exec($pquery);
 		if (file_exists($output)){
 			echo '<form action="" method="post">';
-    		//echo '<input type="submit" name="downloadfiles" value="Download the results below"/>';
-		
-
-			//echo '<form action="' . $phpscript . '" method="post">';
 			echo '<p class="gened">Download the results below. ';
 			$newbrowser = "results.php?file=$output&name=query.txt";
 			echo '<input type="button" class="browser" value="Download Results" onclick="window.open(\''. $newbrowser .'\')"></p>';
@@ -99,6 +94,7 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 	if(!empty($_REQUEST['order'])) {
 		$_SESSION[$table]['select'] = $_POST['search'];
 	}
+	$table = "mysql";
 ?>	
 <table width=100%><tr><td width=280pt>
 		<div class="metactive"><a href="sqlquery.php">Relational Database</a></div>
@@ -110,10 +106,12 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
     <p class="pages">
 <?php
 	if (!empty($_SESSION[$table]['select'])) {
-		echo '<input type="text" size="80%" name="search" value="' . $_SESSION[$table]["select"] . '"\"/>';
+		echo '<textarea name="search" rows="3" cols="80">'.$_SESSION[$table]["select"].'</textarea>';
+//<input type="text" size="80%" name="search" value="' . $_SESSION[$table]["select"] . '"\"/>';
 	} else {
-		echo '<input type="text" size="80%" name="search" placeholder="Specify SQL syntax for MySQL database"/>';
-	} 
+		echo '<textarea name="search" rows="3" cols="80" placeholder="Specify SQL syntax for MySQL database ..."></textarea>';
+//'<input type="text" size="80%" name="search" placeholder="Specify SQL syntax for MySQL database"/>';
+	}
 ?>
 	</p>
 		<p class="pages">
@@ -151,3 +149,4 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 
 </body>
 </html>
+

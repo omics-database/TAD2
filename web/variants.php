@@ -1,11 +1,19 @@
 <?php				
 	session_start();
 	require_once('all_fns.php');
+	if (empty($_GET['quest'])) { $_GET['quest'] = ""; }
+	if (empty($chromosomes)) {$chromosomes = "";}
+	if (empty($samples)) {$samples = "";}
+	if (empty($tissues)) {$tissues = "";}
+	if (empty($_POST['sample'])) { $_POST['sample'] = ""; }
+	if (empty($_POST['organism'])) { $_POST['organism'] = ""; }
+	if (empty($_POST['chromosome'])) { $_POST['chromosome'] = ""; }
 ?>
 <?PHP
 	@$species=$_GET['organism'];
 	$table = "vw_sampleinfo";
 	$Vartable = "VarResult";
+	$Varstats = "VarStatus";
 
 if($_GET['quest'] == 'summary') {
 	tvarisum();		
@@ -94,7 +102,7 @@ if($_GET['quest'] == 'summary') {
 		if ($queryforoutput == "yes") {
 			shell_exec($pquery);
 			if (file_exists($output)){
-				echo '<form action="' . $phpscript . '" method="post">';
+				echo '<form action="" method="post">';
 				echo '<p class="gened">Download the results below. ';
 				$newbrowser = "results.php?file=$output&name=chromosomevariants.txt";
 				echo '<input type="button" class="browser" value="Download Results" onclick="window.open(\''. $newbrowser .'\')"></p>';
@@ -202,7 +210,7 @@ if($_GET['quest'] == 'summary') {
 		if ($queryforoutput == "yes") {
 			shell_exec($pquery);
 			if (file_exists($output)){
-				echo '<form action="' . $phpscript . '" method="post">';
+				echo '<form action="" method="post">';
 				echo '<p class="gened">Download the results below. ';
 				$newbrowser = "results.php?file=$output&name=chromosomevariants.txt";
 				$vcfprocess = $pquery." -vcf";
@@ -285,7 +293,7 @@ if($_GET['quest'] == 'summary') {
 			//print $pquery;
 			shell_exec($pquery);
 			if (file_exists($output)){
-				echo '<form action="' . $phpscript . '" method="post">';
+				echo '<form action="" method="post">';
 				echo '<p class="gened">Download the results below. ';
 				$newbrowser = "results.php?file=$output&name=genevariant.txt";
 				echo '<input type="button" class="browser" value="Download Results" onclick="window.open(\''. $newbrowser .'\')"></p>';

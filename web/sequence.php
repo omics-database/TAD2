@@ -159,7 +159,7 @@
 			<option value="asc">ascending</option>
 			<?php
 				if (empty($_SESSION[$table]['dir'])) {
-					$_SESSION[$table]['asc'] = "asc";
+					$_SESSION[$table]['dir'] = "asc";
 				}
 				if ($_SESSION[$table]['dir'] == "desc") {
 					echo '<option selected value="desc">descending</option>';
@@ -304,3 +304,4 @@
 ?>
 </body>
 </html>
+

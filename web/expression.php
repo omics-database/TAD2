@@ -1,6 +1,10 @@
 <?php				
 	session_start();
 	require_once('all_fns.php');
+	if (empty($_GET['quest'])) { $_GET['quest'] = ""; }
+	if (empty($tissues)) {$tissues = "";}
+	if(empty($_POST['tissue'])) {$_POST['tissue'] = ""; }
+	if(empty($_POST['genexp'])) {$_POST['genexp'] = ""; }
 ?>
 <?PHP
 	//Database Attributes
@@ -99,7 +103,7 @@
 				//print $pquery;
 				shell_exec($pquery);
 				if (file_exists($output)){
-					echo '<form action="' . $phpscript . '" method="post">';
+					echo '<form action="" method="post">';
 					echo '<p class="gened">Download the results below. ';
 					$newbrowser = "results.php?file=$output&name=genes-stats.txt";
 					echo '<input type="button" class="browser" value="Download Results" onclick="window.open(\''. $newbrowser .'\')"></p>';
@@ -196,7 +200,7 @@
 			//print $pquery;
 			shell_exec($pquery);
 			if (file_exists($output)){
-				echo '<form action="' . $phpscript . '" method="post">';
+				echo '<form action="" method="post">';
 				echo '<p class="gened">Download the results below. ';
 				$newbrowser = "results.php?file=$output&name=genes-stats.txt";
 				echo '<input type="button" class="browser" value="Download Results" onclick="window.open(\''. $newbrowser .'\')"></p>';

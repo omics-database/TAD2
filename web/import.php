@@ -5,7 +5,17 @@
 	$newdate = shell_exec("date +%Y-%m-%d");
 	$table = "vw_metadata";
 	$stat = "import";
-
+        if (empty($_GET['quest'])) { $_GET['quest'] = ""; }
+	if (empty($samplename)) { $samplename = ""; }
+        if (empty($sampledesc)) { $sampledesc = ""; }
+        if (empty($animalid)) { $animalid = ""; }
+        if (empty($animaldesc)) { $animaldesc = ""; }
+        if (empty($species)) { $species = ""; }
+        if (empty($part)) { $part = ""; }
+        if (empty($firstname)) { $firstname = ""; }
+        if (empty($middle)) { $middle = ""; }
+        if (empty($lastname)) { $lastname = ""; }
+        if (empty($organization)) { $organization = ""; }
 ?>
 <?php
 	if ($_GET['quest'] == 'manual') {
