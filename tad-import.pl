@@ -67,6 +67,7 @@ if ($metadata){
 		printerr "JOB:\t Importing Sample Information from tab-delimited file => $file2consider\n"; #status
 		my %filecontent = %{ tabcontent($file2consider) }; #get content from tab-delimited file
 		foreach my $row (sort keys %filecontent){
+			undef %NAME; undef %ORGANIZATION;
 			if (exists $filecontent{$row}{'sample name'}) { #sample name
 				$filecontent{$row}{'organism part'} = lc($filecontent{$row}{'organism part'});
 				my $sheetid = "$filecontent{$row}{'first name'} $filecontent{$row}{'middle initial'} $filecontent{$row}{'last name'}"; #scientist name
