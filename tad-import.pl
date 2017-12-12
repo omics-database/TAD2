@@ -913,7 +913,8 @@ sub LOGFILE { #subroutine for getting metadata
 		elsif ($mappingtool =~ /tophat/i) {
 			my $annotation; undef %ALL; my $no = 0;
 			my @newgeninfo = split('\s', $mparameters);
-			foreach my $number (1..$#newgeninfo) {
+			my $number = 1;
+			while ($number <= $#newgeninfo) {
 				unless ($newgeninfo[$number] =~ /-no-coverage-search/){
 					if ($newgeninfo[$number] =~ /^\-/){
 						my $old = $number++;
@@ -925,6 +926,7 @@ sub LOGFILE { #subroutine for getting metadata
 						}
 					}
 				}
+				$number++;
 			}
 			unless ((exists $ALL{"-G"}) || (exists $ALL{"--GTF"})) {
 				$annotationfile = undef;
