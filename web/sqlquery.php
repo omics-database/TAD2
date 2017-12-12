@@ -3,6 +3,8 @@
 	require_once('all_fns.php');
 	tsqlquery(); 
 	if (empty($_GET['quest'])) { $_GET['quest'] = ""; }
+	if (empty($_POST['fastbit'])) { $_POST['fastbit'] = ""; }
+	$table="mysql";
 ?>
 <div class="menu">TransAtlasDB Database Query</div>
 <?PHP
@@ -19,7 +21,7 @@ if ($_GET['quest'] == 'nosql') {
 		<div class="metamenu"><a href="sqlquery.php">Relational Database</a></div>
 		<div class="metactive"><a href="sqlquery.php?quest=nosql">Non-relational Database</a></div>
 	</td><td valign="top"><div class="dift">
-		<table><tr><td>Perform NoSQL DML on the three data directories:</td><td>
+		<table><tr><td>Perform NoSQL DQL on the three data directories:</td><td>
 	<ol type="i"><li> Gene expression information </li>
 	<li> Gene Raw Counts information </li>
 	<li> Variants information </li></ol></td></tr><tr><td colspan="2" align="right">
@@ -100,7 +102,7 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 		<div class="metactive"><a href="sqlquery.php">Relational Database</a></div>
 		<div class="metamenu"><a href="sqlquery.php?quest=nosql">Non-relational Database</a></div>
 	</td><td valign="top">
-		<div class="dift">Perform SQL DML.<br>
+		<div class="dift">Perform SQL DQL.<br>
 	<!-- QUERY -->
 	<form action="" method="post">
     <p class="pages">
