@@ -1137,7 +1137,7 @@ sub MTD {
             --db2data                   perform configured modules 
 
         Arguments for db2data
-            --nosql                    Query FastBit datafiles (either: gene-information, gene_count-information, or variant-information)
+            --nosql                    Query FastBit datafiles (specify [gene-information | gene_count-information | variant-information])
 
         Arguments for db2data
             --avgexp                    average expression (fpkm/tpm) values of specified genes
