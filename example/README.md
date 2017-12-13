@@ -30,11 +30,11 @@ All required input files should be stored in a single folder, which should be na
 
 * _**sample_sxt**_ : contains the mapping, expression and variant information for GGA_UD_1004 and GGA_UD_1014 generated from different tools to showcase the versatility of TransAtlasDB.
 
- | **Software**          | GGA_UD_1004    | GGA_UD_1014    |
- |:----------------------|:---------------|:---------------|
- | Mapping               | TopHat2        | HISAT2         |
- | Expression            | Cufflinks      | StringTie      |
- | Variant (Annotation)  | GATK (ANNOVAR) | SAMtools (VEP) |
+ | **Software**                       | GGA_UD_1004                  | GGA_UD_1014                    |
+ |:-----------------------------------|:-----------------------------|:-------------------------------|
+ | Mapping                            | TopHat2                      | HISAT2                         |
+ | Expression (ReadCounts)            | Cufflinks (htseq-count)      | StringTie (featureCounts)      |
+ | Variant (Annotation)               | GATK (ANNOVAR)               | SAMtools (VEP)                 |
 
 **P.S.**: The data files provided are simulated for tutorial purposes.
 
