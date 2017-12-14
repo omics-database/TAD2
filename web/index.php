@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
     <head>
@@ -25,7 +24,8 @@
                 <div class="linksheader">
                     <a href="about.php">About</a>
                     <a href="import.php">Data Import</a>
-                    <a href="metadata.php">MetaData</a>
+                    <a href="sqlquery.php">SQL Query</a>
+		    <a href="metadata.php">MetaData</a>
                     <a href="expression.php">Genes Expression</a>
                     <a href="variants.php">Variants</a>
                     <a href="https://modupeore.github.com/TransAtlasDB" target="_blank">GitHub</a>
