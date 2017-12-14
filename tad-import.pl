@@ -731,7 +731,7 @@ if ($delete){ #delete section
 								$execute = "$ibis -d -v $cfastbit -y \"sampleid = '$delete'\" -z";
 								`$execute 2>> $efile`; printerr ".";
 								`rm -rf $cfastbit/*sp $cfastbit/*old $cfastbit/*idx $cfastbit/*dic $cfastbit/*int `; #removing old indexes
-								`ibis -d $cfastbit -query "select genename, geneid, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
+								`ibis -d $cfastbit -query "select genename, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
 								
 								printerr " Done\n";
 							}
@@ -753,7 +753,7 @@ if ($delete){ #delete section
 							$execute = "$ibis -d -v $cfastbit -y \"sampleid = '$delete'\" -z";
 							`$execute 2>> $efile`; printerr ".";
 							`rm -rf $cfastbit/*sp $cfastbit/*old $cfastbit/*idx $cfastbit/*dic $cfastbit/*int `; #removing old indexes
-							`ibis -d $cfastbit -query "select genename, geneid, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
+							`ibis -d $cfastbit -query "select genename, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
 								
 							printerr " Done\n";
 						}
@@ -899,10 +899,12 @@ sub LOGFILE { #subroutine for getting metadata
 	}
 	if ($bamfile){
 		my $headerdetails = `samtools view -H $bamfile | grep -m 1 "\@PG" | head -1`;
-		$headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)\s*CL\:(.*)/;
-		$mappingtool = $1." v".$2; $mparameters = $3;
+		if ($headerdetails =~ /\sCL\:"/) { #making sure mapping tool has the tool information or not 
+			$headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)\s*CL\:(.*)/; $mappingtool = $1." v".$2; $mparameters = $3;
+		} 
+		else { $headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)/; $mappingtool = $1." v".$2; }
 		if ($mappingtool =~ /hisat/i) {
-			$mparameters =~ /\-x\s(\w+)\s/;
+			$mparameters =~ /\-x\s(\S+)\s/;
 			$refgenome = $1; #reference genome name
 			$refgenomename = (split('\/', $refgenome))[-1];
 			if ($mparameters =~ /-1/){ #paired-end reads
@@ -1047,7 +1049,7 @@ sub READ_COUNT { #subroutine for read counts
 			my $execute = "$ardea -d $cfastbit -m 'sampleid:text,genename:text,organism:text,tissue:text,readcount:double' -t $cnosql";
 			`$execute 2>> $efile` or die "\nERROR\t: Complication importing RawCounts information to FastBit, contact $AUTHOR\n";
 			`rm -rf $cfastbit/*sp`; #removeing old indexes
-			`ibis -d $cfastbit -query "select genename, geneid, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
+			`ibis -d $cfastbit -query "select genename, sampleid, tissue, organism" 2>> $efile`; #create a new index based on genename
 			`chmod 777 $cfastbit && rm -rf $cnosql`;
 			
 			$sth = $dbh->prepare("update GeneStats set countstool = '$counttool', countstatus = 'done' where sampleid= '$_[0]'"); $sth ->execute(); #updating GeneStats table.
@@ -1445,87 +1447,89 @@ sub GENES_FPKM { #subroutine for getting gene information
 
 sub DBVARIANT {
 	my $toolvariant; undef $vparameters;
-	if($_[0]){ open(VARVCF,$_[0]) or die ("\nERROR:\t Can not open variant file $_[0]\n"); } else { die ("\nERROR:\t Can not find variant file. make sure variant file with suffix '.vcf' is present\n"); }
-	while (<VARVCF>) {
-		chomp;
-		if (/^\#/) {
-			unless (/\#INFO/ || /\#FORMAT/ || /\#contig/ || /#FORMAT/) {
-				if (/Version/) {
-					if ($_ =~ /GATK/) {
-						$_ =~ /ID\=(.*)\,.*Version\=(.*)\,Date.*CommandLineOptions="(.*)">$/;
-						$toolvariant = "GATK v.$2,$1";
-						$varianttool = "GATK";
-						$vparameters = $3;
-					} elsif ($_ =~ /samtools/) {
-						$_ =~ /Version\=(.*)\+./;
-						$toolvariant = "samtools v.$1";
-						$varianttool = "samtools";
-					}
-				} elsif (/Command/) {
-					$_ =~ /Command=(.*)$/;
-					unless ($vparameters) {
-						$vparameters = $1;
-					} else {
-						$vparameters .= " | $1";
-					}
-				} #end assigning toolvariant
+	unless($_[0]) { printerr ("ERROR:\t Can not find variant file. make sure variant file with suffix '.vcf' is present\nNOTICE:\t Moving on from importing variants to TransAtlasDB ..."); }
+	else { open(VARVCF,$_[0]) or die ("\nERROR:\t Can not open variant file $_[0]\n");  
+		while (<VARVCF>) {
+			chomp;
+			if (/^\#/) {
+				unless (/\#INFO/ || /\#FORMAT/ || /\#contig/ || /#FORMAT/) {
+					if (/Version/) {
+						if ($_ =~ /GATK/) {
+							$_ =~ /ID\=(.*)\,.*Version\=(.*)\,Date.*CommandLineOptions="(.*)">$/;
+							$toolvariant = "GATK v.$2,$1";
+							$varianttool = "GATK";
+							$vparameters = $3;
+						} elsif ($_ =~ /samtools/) {
+							$_ =~ /Version\=(.*)\+./;
+							$toolvariant = "samtools v.$1";
+							$varianttool = "samtools";
+						}
+					} elsif (/Command/) {
+						$_ =~ /Command=(.*)$/;
+						unless ($vparameters) {
+							$vparameters = $1;
+						} else {
+							$vparameters .= " | $1";
+						}
+					} #end assigning toolvariant
+				}
+			} else {
+				my @chrdetails = split "\t";
+				my @morechrsplit = split(';', $chrdetails[7]);
+				if (((split(':', $chrdetails[9]))[0]) eq '0/1'){$verd = "heterozygous";}
+				elsif (((split(':', $chrdetails[9]))[0]) eq '1/1'){$verd = "homozygous";}
+				elsif (((split(':', $chrdetails[9]))[0]) eq '1/2'){$verd = "heterozygous alternate";}
+				$VCFhash{$chrdetails[0]}{$chrdetails[1]} = "$chrdetails[3]|$chrdetails[4]|$chrdetails[5]|$verd";
 			}
-		} else {
-			my @chrdetails = split "\t";
-			my @morechrsplit = split(';', $chrdetails[7]);
-			if (((split(':', $chrdetails[9]))[0]) eq '0/1'){$verd = "heterozygous";}
-			elsif (((split(':', $chrdetails[9]))[0]) eq '1/1'){$verd = "homozygous";}
-			elsif (((split(':', $chrdetails[9]))[0]) eq '1/2'){$verd = "heterozygous alternate";}
-			$VCFhash{$chrdetails[0]}{$chrdetails[1]} = "$chrdetails[3]|$chrdetails[4]|$chrdetails[5]|$verd";
-		}
-	} close VARVCF;
-	$sth = $dbh->prepare("insert into VarSummary ( sampleid, varianttool, date) values (?,?,?)");
-	$sth ->execute($_[1], $toolvariant, $date) or die "\nERROR:\t Complication in VarSummary table, consult documentation\n";;
-	$vparameters =~ s/\"//g;
-	$sth = $dbh->prepare("update CommandSyntax set variantsyntax = '$vparameters' where sampleid = '$_[1]'");
-	$sth ->execute();
-
-	#VARIANT_RESULTS
-	printerr "NOTICE:\t Importing $varianttool variant information for $_[1] to VarResult table ...";
+		} close VARVCF;
+		$sth = $dbh->prepare("insert into VarSummary ( sampleid, varianttool, date) values (?,?,?)");
+		$sth ->execute($_[1], $toolvariant, $date) or die "\nERROR:\t Complication in VarSummary table, consult documentation\n";;
+		$vparameters =~ s/\"//g;
+		$sth = $dbh->prepare("update CommandSyntax set variantsyntax = '$vparameters' where sampleid = '$_[1]'");
+		$sth ->execute();
 	
-	#converting to threads
-	undef %HASHDBVARIANT; my $ii = 0;
-	foreach my $abc (sort keys %VCFhash) {
-		foreach my $def (sort {$a <=> $b} keys %{ $VCFhash{$abc} }) {
-			my @vcf = split('\|', $VCFhash{$abc}{$def});
-			if ($vcf[3] =~ /,/){
-				my $first = split(",",$vcf[1]);
-				if (length $vcf[0] == length $first){ $itvariants++; $itsnp++; $variantclass = "SNV"; }
-				elsif (length $vcf[0] < length $first) { $itvariants++; $itindel++; $variantclass = "insertion"; }
+		#VARIANT_RESULTS
+		printerr "NOTICE:\t Importing $varianttool variant information for $_[1] to VarResult table ...";
+		
+		#converting to threads
+		undef %HASHDBVARIANT; my $ii = 0;
+		foreach my $abc (sort keys %VCFhash) {
+			foreach my $def (sort {$a <=> $b} keys %{ $VCFhash{$abc} }) {
+				my @vcf = split('\|', $VCFhash{$abc}{$def});
+				if ($vcf[3] =~ /,/){
+					my $first = split(",",$vcf[1]);
+					if (length $vcf[0] == length $first){ $itvariants++; $itsnp++; $variantclass = "SNV"; }
+					elsif (length $vcf[0] < length $first) { $itvariants++; $itindel++; $variantclass = "insertion"; }
+					else { $itvariants++; $itindel++; $variantclass = "deletion"; }
+				}
+				elsif (length $vcf[0] == length $vcf[1]){ $itvariants++; $itsnp++; $variantclass = "SNV"; }
+				elsif (length $vcf[0] < length $vcf[1]) { $itvariants++; $itindel++; $variantclass = "insertion"; }
 				else { $itvariants++; $itindel++; $variantclass = "deletion"; }
+			
+				#putting variants info into a hash table
+				my @hashdbvariant = ($_[1], $abc, $def, $vcf[0], $vcf[1], $vcf[2], $variantclass, $vcf[3]); 
+				$HASHDBVARIANT{$ii++} = [@hashdbvariant];
 			}
-			elsif (length $vcf[0] == length $vcf[1]){ $itvariants++; $itsnp++; $variantclass = "SNV"; }
-			elsif (length $vcf[0] < length $vcf[1]) { $itvariants++; $itindel++; $variantclass = "insertion"; }
-			else { $itvariants++; $itindel++; $variantclass = "deletion"; }
-		
-			#putting variants info into a hash table
-			my @hashdbvariant = ($_[1], $abc, $def, $vcf[0], $vcf[1], $vcf[2], $variantclass, $vcf[3]); 
-			$HASHDBVARIANT{$ii++} = [@hashdbvariant];
 		}
+			
+		#update variantsummary with counts
+		$sth = $dbh->prepare("update VarSummary set totalvariants = $itvariants, totalsnps = $itsnp, totalindels = $itindel where sampleid= '$_[1]'");
+		$sth ->execute();
+	
+		my @hashdetails = keys %HASHDBVARIANT; #print "First $#hashdetails\n"; die;
+		undef @VAR; undef @threads;
+		push @VAR, [ splice @hashdetails, 0, 200 ] while @hashdetails; #sub the files to multiple subs
+		$queue = new Thread::Queue();
+		my $builder=threads->create(\&main); #create thread for each subarray into a thread 
+		push @threads, threads->create(\&dbvarprocessor) for 1..5; #execute 5 threads
+		$builder->join; #join threads
+		foreach (@threads){$_->join;}
+	
+		#update variantsummary with counts
+		$sth = $dbh->prepare("update VarSummary set status = 'done' where sampleid= '$_[1]'");
+		$sth ->execute();
+		$sth->finish();
 	}
-		
-	#update variantsummary with counts
-	$sth = $dbh->prepare("update VarSummary set totalvariants = $itvariants, totalsnps = $itsnp, totalindels = $itindel where sampleid= '$_[1]'");
-	$sth ->execute();
-
-	my @hashdetails = keys %HASHDBVARIANT; #print "First $#hashdetails\n"; die;
-	undef @VAR; undef @threads;
-	push @VAR, [ splice @hashdetails, 0, 200 ] while @hashdetails; #sub the files to multiple subs
-	$queue = new Thread::Queue();
-	my $builder=threads->create(\&main); #create thread for each subarray into a thread 
-	push @threads, threads->create(\&dbvarprocessor) for 1..5; #execute 5 threads
-	$builder->join; #join threads
-	foreach (@threads){$_->join;}
-
-	#update variantsummary with counts
-	$sth = $dbh->prepare("update VarSummary set status = 'done' where sampleid= '$_[1]'");
-	$sth ->execute();
-	$sth->finish();
 }
 sub dbvarprocessor { my $query; while ($query = $queue->dequeue()){ dbvarinput(@$query); } }
 sub dbvarinput {
