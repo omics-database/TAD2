@@ -34,9 +34,9 @@ my ($refgenome, $refgenomename, $stranded, $sequences, $annotationfile, $mparame
 my $additional;
 
 #genes import
-our ($bamfile, $alignfile, $version, $readcountfile, $genesfile, $deletionsfile, $insertionsfile, $transcriptsgtf, $junctionsfile, $variantfile, $vepfile, $annofile);
+our ($bamfile, $fastqcfolder, $alignfile, $version, $readcountfile, $genesfile, $deletionsfile, $insertionsfile, $transcriptsgtf, $junctionsfile, $variantfile, $vepfile, $annofile);
 our ($kallistofile, $kallistologfile, $salmonfile, $salmonlogfile);
-our ($total, $mapped, $alignrate, $deletions, $insertions, $junctions, $genes, $mappingtool, $annversion, $diffexpress, $counttool);
+our ($totalreads, $mapped, $alignrate, $deletions, $insertions, $junctions, $genes, $mappingtool, $annversion, $diffexpress, $counttool);
 my (%ARFPKM,%CHFPKM, %BEFPKM, %CFPKM, %DFPKM, %TPM, %cfpkm, %dfpkm, %tpm, %DHFPKM, %DLFPKM, %dhfpkm, %dlfpkm, %ALL);
 my (%HASHDBVARIANT, @VAR, @threads, $queue);
 #variant import
@@ -403,6 +403,7 @@ if ($datadb){
   my @foldercontent = split("\n", `find $file2consider -type f -print0 | xargs -0 ls -tr `); #get details of the folder
 		
   foreach (grep /\.gtf/, @foldercontent) { unless (`head -n 3 $_ | wc -l` <= 0 && $_ =~ /skipped/) { $transcriptsgtf = $_; } }
+	$fastqcfolder = (grep /fastqc.zip$/, @foldercontent)[0]; unless ($fastqcfolder) { $fastqcfolder = (grep /fastqc_data.txt$/, @foldercontent)[0]; }
 	$alignfile = (grep /summary.txt/, @foldercontent)[0];
   $genesfile = (grep /genes.fpkm/, @foldercontent)[0];
   $deletionsfile = (grep /deletions.bed/, @foldercontent)[0];
@@ -426,11 +427,11 @@ if ($datadb){
 			#open alignment summary file
       unless ($kallistologfile || $salmonlogfile) {
 				if ($alignfile) {
-					`head -n 1 $alignfile` =~ /^(\d+)\sreads/; $total = $1;
+					`head -n 1 $alignfile` =~ /^(\d+)\sreads/; $totalreads = $1;
 					open(ALIGN,"<", $alignfile) or die "\nFAILED:\t Can not open Alignment summary file '$alignfile'\n";
 					while (<ALIGN>){
 						chomp;
-						if (/Input/){my $line = $_; $line =~ /Input.*:\s+(\d+)$/;$total = $1;}
+						if (/Input/){my $line = $_; $line =~ /Input.*:\s+(\d+)$/;$totalreads = $1;}
 						if (/overall/) { my $line = $_; $line =~ /^(\d+.\d+)%\s/; $alignrate = $1;}
 						if (/overall read mapping rate/) {
 							if ($mappingtool){
@@ -447,7 +448,7 @@ if ($datadb){
 							} else { $mappingtool = "HISAT";}
 						}
 					} close ALIGN;
-					$mapped = ceil($total * $alignrate/100);
+					$mapped = ceil($totalreads * $alignrate/100);
 				} else {die "\nFAILED:\t Can not find Alignment summary file as 'align_summary.txt'\n";}
 			}
      				
@@ -460,7 +461,7 @@ if ($datadb){
 			#MapStats table
 			if ($mappingtool) { printerr "NOTICE:\t Importing $mappingtool alignment information for $dataid to MapStats table ..."; }
 			$sth = $dbh->prepare("insert into MapStats (sampleid, totalreads, mappedreads, alignmentrate, deletions, insertions, junctions, date ) values (?,?,?,?,?,?,?,?)");
-			$sth ->execute($dataid, $total, $mapped, $alignrate, $deletions, $insertions, $junctions, $date) or die "\nERROR:\t Complication in MapStats table, consult documentation\n";
+			$sth ->execute($dataid, $totalreads, $mapped, $alignrate, $deletions, $insertions, $junctions, $date) or die "\nERROR:\t Complication in MapStats table, consult documentation\n";
 			if ($mappingtool) { printerr " Done\n"; }
 			#metadata table
 			if ($mappingtool) { printerr "NOTICE:\t Importing $mappingtool alignment information for $dataid to Metadata table ..."; }
@@ -886,6 +887,16 @@ sub processArguments {
 }
 
 sub LOGFILE { #subroutine for getting metadata
+	if ($fastqcfolder) { #if the fastqcfolder exist
+		my ($fastqcfilename, $parentfastqc);
+		if ($fastqcfolder =~ /zip$/) { #making sure if it's a zipped file
+			`unzip $fastqcfolder`;
+			$parentfastqc = fileparse($fastqcfolder, qr/\.[^.]*(\.zip)?$/);
+			$fastqcfilename = fileparse($fastqcfolder, qr/\.[^.]*(\.zip)?$/)."/fastqc_data.txt";
+		} else { $fastqcfilename = $fastqcfolder; } #else it will be the actual file
+		$totalreads = `grep "Total Sequences" $fastqcfilename | awk -F" " '{print \$3}'`;
+		if ($fastqcfolder =~ /zip$/) { `rm -rf $parentfastqc`; } #removing the unzipped folder
+	}
 	if ($bamfile){
 		my $headerdetails = `samtools view -H $bamfile | grep -m 1 "\@PG" | head -1`;
 		$headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)\s*CL\:(.*)/;
@@ -1016,7 +1027,7 @@ sub READ_COUNT { #subroutine for read counts
 						$cparameters =~ s/\"//g;
 					} elsif ($_ =~ /^_/) {
 						$counttool = "htseqcount";
-						$cparameters = NULL;
+						$cparameters = undef;
 					}
 				}
 				$countpreamble++;
@@ -1425,8 +1436,6 @@ sub GENES_FPKM { #subroutine for getting gene information
 						$sth ->execute() or die "\nERROR:\t Complication in GeneStats table, consult documentation\n";
 						$additional .=  "Optional: To delete '$_[0]' Expression information ; Execute: tad-import.pl -delete $_[0] \n";
 				}	
-		}	else {
-			die "\nERROR:\t Can not find gene expression file, making sure transcript / abundance files are present'.\n";
 		}
 	} else {
 		$verbose and printerr "NOTICE:\t $_[0] already in Genes-NoSQL ... Moving on \n";
