@@ -29,12 +29,12 @@ our ($sheetid, %NAME, %ORGANIZATION);
 #data2db options
 our ($found);
 our (@allgeninfo);
-my ($str, $ann, $ref, $seq,$allstart, $allend) = (0,0,0,0,0,0); #for log file
-my ($refgenome, $refgenomename, $stranded, $sequences, $annotationfile, $mparameters, $gparameters, $cparameters, $vparameters); #for annotation file
+our ($str, $ann, $ref, $seq,$allstart, $allend) = (0,0,0,0,0,0); #for log file
+our ($refgenome, $refgenomename, $stranded, $sequences, $annotationfile, $mparameters, $gparameters, $cparameters, $vparameters); #for annotation file
 my $additional;
 
 #genes import
-our ($bamfile, $fastqcfolder, $alignfile, $version, $readcountfile, $genesfile, $deletionsfile, $insertionsfile, $transcriptsgtf, $junctionsfile, $variantfile, $vepfile, $annofile);
+our ($bamfile, $fastqcfolder, $alignfile, $staralignfile, $version, $readcountfile, $starcountfile, $genesfile, $deletionsfile, $insertionsfile, $transcriptsgtf, $junctionsfile, $variantfile, $vepfile, $annofile);
 our ($kallistofile, $kallistologfile, $salmonfile, $salmonlogfile);
 our ($totalreads, $mapped, $alignrate, $deletions, $insertions, $junctions, $genes, $mappingtool, $annversion, $diffexpress, $counttool);
 my (%ARFPKM,%CHFPKM, %BEFPKM, %CFPKM, %DFPKM, %TPM, %cfpkm, %dfpkm, %tpm, %DHFPKM, %DLFPKM, %dhfpkm, %dlfpkm, %ALL);
@@ -414,10 +414,12 @@ if ($datadb){
   $vepfile = (grep /.vep.txt$/, @foldercontent)[0];
   $annofile = (grep /anno.txt$/, @foldercontent)[0];
 	$readcountfile = (grep /.counts$/, @foldercontent)[0];
+	$starcountfile = (grep /ReadsPerGene.out.tab$/, @foldercontent)[0];
 	$kallistofile = (grep /.tsv$/, @foldercontent)[0];
 	$kallistologfile = (grep /run_info.json/, @foldercontent)[0];
 	$salmonfile = (grep /.sf$/, @foldercontent)[0];
 	$salmonlogfile = (grep /cmd_info.json$/, @foldercontent)[0];
+	$staralignfile = (grep /Log.final.out$/, @foldercontent)[0];
 
   $sth = $dbh->prepare("select sampleid from Sample where sampleid = '$dataid'"); $sth->execute(); $found = $sth->fetch();
   if ($found) { # if sample is not in the database    
@@ -449,7 +451,13 @@ if ($datadb){
 						}
 					} close ALIGN;
 					$mapped = ceil($totalreads * $alignrate/100);
-				} else {die "\nFAILED:\t Can not find Alignment summary file as 'align_summary.txt'\n";}
+				} elsif ($staralignfile && $mappingtool =~ /star/i) {
+					`grep "Number of input reads" $staralignfile` =~ /\s(\d+)$/; $totalreads = $1;
+					`grep "Uniquely mapped reads %" $staralignfile` =~ /\s(\d+)%$/; $alignrate = $1;
+				} else {
+					if ($mappingtool =~ /star/) {die "\nFAILED:\t Can not find STAR Alignment summary file as 'Log.final.out'\n";}
+					else {die "\nFAILED:\t Can not find Alignment summary file as 'align_summary.txt'\n";}
+				}
 			}
      				
 			$deletions = undef; $insertions = undef; $junctions = undef;
@@ -899,7 +907,7 @@ sub LOGFILE { #subroutine for getting metadata
 	}
 	if ($bamfile){
 		my $headerdetails = `samtools view -H $bamfile | grep -m 1 "\@PG" | head -1`;
-		if ($headerdetails =~ /\sCL\:"/) { #making sure mapping tool has the tool information or not 
+		if ($headerdetails =~ /\sCL\:/) { #making sure mapping tool has the tool information or not 
 			$headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)\s*CL\:(.*)/; $mappingtool = $1." v".$2; $mparameters = $3;
 		} 
 		else { $headerdetails =~ /\@PG\s*ID\:(\S*).*VN\:(\S*)/; $mappingtool = $1." v".$2; }
@@ -957,6 +965,35 @@ sub LOGFILE { #subroutine for getting metadata
 				$sequences = ( ( split('\/', $seq) ) [-1]);
 			} #end if seq
 		} # end if working with tophat
+		elsif ($mappingtool =~ /star/i) {
+			my ($annotation, $otherseq); undef %ALL; my $no = 0;
+			my @newgeninfo = split('\s', $mparameters);
+			my $number = 1;
+			while ($number <= $#newgeninfo) {
+				unless ($newgeninfo[$number] =~ /-readFilesIn/){
+					if ($newgeninfo[$number] =~ /^\-/){
+						my $old = $number++;
+						$ALL{$newgeninfo[$old]} = $newgeninfo[$number];
+					}
+				} else {
+					my $old = $number++;
+					my $seq = $newgeninfo[$number]; 
+					my $new = $number+1;
+					unless ($newgeninfo[$new] =~ /^\-\-/) {
+						$otherseq = $newgeninfo[$new]; #if paired reads
+						$sequences = ( ( split('\/', $seq) ) [-1]).",". ( ( split('\/', $otherseq) ) [-1]);
+						$number++;
+					} else {
+						$sequences = ( ( split('\/', $seq) ) [-1]);
+					}
+				} #working with sequence names
+				$number++;
+			}
+			$annotationfile = undef;
+			$stranded = undef;
+			$refgenome = $ALL{"--genomeDir"};
+			$refgenomename = (split('\/', $ALL{0}))[-1];
+		} # end if working with star
 		else {
 			$annotationfile = undef;
 			$stranded = undef; $sequences = undef;
@@ -990,8 +1027,9 @@ sub LOGFILE { #subroutine for getting metadata
 
 sub READ_COUNT { #subroutine for read counts
 	#INSERT INTO DATABASE: #ReadCounts table
-	if ($readcountfile) {
+	if ($readcountfile || $starcountfile) {
 		my $readcount = 0;
+		my $countcolumn = "-1";
 		$sth = $dbh->prepare("select countstatus from GeneStats where sampleid = '$_[0]' and countstatus ='done'"); $sth->execute(); $found = $sth->fetch();
 		unless ($found) {
 			my $ffastbit = fastbit($all_details{'FastBit-path'}, $all_details{'FastBit-foldername'});  #connect to fastbit
@@ -1007,14 +1045,19 @@ sub READ_COUNT { #subroutine for read counts
 			my $tissue = $dbh->selectrow_array("select tissue from Sample where sampleid = '$_[0]'");			
 				
 			#get type of input
-			open(READ, "<", $readcountfile) or die "\nERROR:\t Can not open file $readcountfile\n";
+			if ($readcountfile) {
+				open(READ, "<", $readcountfile) or die "\nERROR:\t Can not open file $readcountfile\n";
+			} else {
+				open(READ, "<", $starcountfile) or die "\nERROR:\t Can not open file $starcountfile\n";
+				$countcolumn = "1";
+			}
 			my ($countpreamble, $checkforpreamble) = (0,0);
 			open (NOSQL, ">$cnosql");
 			while (<READ>) {
 				chomp;
 				my @allidgene = split("\t");
-				my ($idgene, $idcount) = ($allidgene[0], $allidgene[-1]);
-				if ($idgene =~ /^[a-zA-Z0-9]/) {
+				my ($idgene, $idcount) = ($allidgene[0], $allidgene[$countcolumn]);
+				if ($idgene =~ /^[a-zA-Z0-9][a-zA-Z0-9]/) {
 					if ($countpreamble == 0 || $countpreamble == 2) {
 						$checkforpreamble = 1;
 					}
@@ -1027,8 +1070,11 @@ sub READ_COUNT { #subroutine for read counts
 						$counttool = (split(':', $program))[1];
 						$cparameters = (split(':', $command))[1];
 						$cparameters =~ s/\"//g;
-					} elsif ($_ =~ /^_/) {
+					} elsif ($_ =~ /^\_/) {
 						$counttool = "htseqcount";
+						$cparameters = undef;
+					} elsif ($_ =~ /^N\_/) {
+						$counttool = "STAR quantMode";
 						$cparameters = undef;
 					}
 				}
@@ -1708,28 +1754,7 @@ sub ANNOVARIANT {
 			} else {
 				$ANNOhash{$locate} = $locate;
 				my @hashdbanno = ($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, $CONTENT{$newno}{$ENSGENE{'gene'}}, $pposition, 'Ensembl', $transcript, $aminoacid, $codons);
-				#$_[1], $chrom, $position, $extra{'VARIANT_CLASS'}, $consequence, $geneid, $pposition, $dbsnp, $extra{'SOURCE'}, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'}, $aminoacid, $codons);
 				$HASHDBVARIANT{$ii++} = [@hashdbanno];
-				#	
-				#	$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?)");
-				#$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'Ensembl', $CONTENT{$newno}{$ENSGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation \n";
-
-				##NOSQL portion
-				#@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$ENSGENE{'gene'}}' and proteinposition = '$pposition'");
-				#$showcase = undef; 
-				#foreach my $variables (0..$#nosqlrow) {
-				#	if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
-				#		$nosqlrow[$variables] = "NULL";
-				#	}
-				#	if ($variables < 17) {
-				#		$showcase .= "'$nosqlrow[$variables]',";
-				#	}
-				#	else {
-				#		$showcase .= "$nosqlrow[$variables],";
-				#	}
-				#}
-				#chop $showcase; $showcase .= "\n";
-				#open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
 			} #end if annohash locate
 		} # end foreach looking at content
 	} #end if ENSGENE
@@ -1777,28 +1802,7 @@ sub ANNOVARIANT {
 				$ANNOhash{$locate} = $locate;
 				if (exists $CONTENT{$newno}{$REFGENE{'gene'}}) { $CONTENT{$newno}{$REFGENE{'gene'}} = uc($CONTENT{$newno}{$REFGENE{'gene'}}); }
 				my @hashdbanno = ($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, $CONTENT{$newno}{$REFGENE{'gene'}}, $pposition, 'RefSeq', $CONTENT{$newno}{$REFGENE{'gene'}}, $transcript, $aminoacid, $codons);
-				#$_[1], $chrom, $position, $extra{'VARIANT_CLASS'}, $consequence, $geneid, $pposition, $dbsnp, $extra{'SOURCE'}, $extra{'SYMBOL'}, $transcriptid, $featuretype, $extra{'BIOTYPE'}, $aminoacid, $codons);
 				$HASHDBVARIANT{$ii++} = [@hashdbanno];
-				#$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?)");
-				#if (exists $CONTENT{$newno}{$REFGENE{'gene'}}) { $CONTENT{$newno}{$REFGENE{'gene'}} = uc($CONTENT{$newno}{$REFGENE{'gene'}}); }
-				#$sth ->execute($_[1], $CONTENT{$newno}{'chr'}, $CONTENT{$newno}{'position'}, $consequence, 'RefSeq', $CONTENT{$newno}{$REFGENE{'gene'}}, $CONTENT{$newno}{$REFGENE{'gene'}}, $transcript, $pposition, $aminoacid, $codons) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
-
-				##NOSQL portion
-				#@nosqlrow = $dbh->selectrow_array("select * from vw_nosql where sampleid = '$_[1]' and chrom = '$CONTENT{$newno}{'chr'}' and position = $CONTENT{$newno}{'position'} and consequence = '$consequence' and geneid = '$CONTENT{$newno}{$REFGENE{'gene'}}' and proteinposition = '$pposition'");
-				#$showcase = undef; 
-				#foreach my $variables (0..$#nosqlrow){
-				#	if (!($nosqlrow[$variables]) ||(length($nosqlrow[$variables]) < 1) || ($nosqlrow[$variables] =~ /^\-$/) ){
-				#		$nosqlrow[$variables] = "NULL";
-				#	}
-				#	if ($variables < 17) {
-				#		$showcase .= "'$nosqlrow[$variables]',";
-				#	}
-				#	else {
-				#		$showcase .= "$nosqlrow[$variables],";
-				#	}
-				#}
-				#chop $showcase; $showcase .= "\n";
-				#open (NOSQL, ">>$vnosql"); print NOSQL $showcase; close NOSQL; #end of nosql portion
 			} #end if annohash locate
 		} # end foreach looking at content
 	} #end if REFGENE
