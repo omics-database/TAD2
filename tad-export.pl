@@ -1167,6 +1167,11 @@ sub MTD {
       tad-export.pl -query 'select * from VarSummary'
       tad-export.pl -query 'select * from VarSummary' -o output.txt
                     
+      #execute query on nosql, to view the first ten rows in the gene-information folder
+      tad-export.pl --nosql gene-information --query 'select genename,organism,tissue,fpkm,tpm where 1=1 limit 10'
+
+
+
       #all variants for organism Gallus Gallus
       tad-export.pl --db2data --varanno --species 'Gallus gallus'
       tad-export.pl --db2data --varanno --species 'Gallus gallus' -o output.txt
