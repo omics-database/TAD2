@@ -453,7 +453,7 @@ if ($datadb){
 					$mapped = ceil($totalreads * $alignrate/100);
 				} elsif ($staralignfile && $mappingtool =~ /star/i) {
 					`grep "Number of input reads" $staralignfile` =~ /\s(\d+)$/; $totalreads = $1;
-					`grep "Uniquely mapped reads %" $staralignfile` =~ /\s(\d+)%$/; $alignrate = $1;
+					`grep "Uniquely mapped reads %" $staralignfile` =~ /\s(\S+)\%$/; $alignrate = $1;
 				} else {
 					if ($mappingtool =~ /star/) {die "\nFAILED:\t Can not find STAR Alignment summary file as 'Log.final.out'\n";}
 					else {die "\nFAILED:\t Can not find Alignment summary file as 'align_summary.txt'\n";}
@@ -966,7 +966,7 @@ sub LOGFILE { #subroutine for getting metadata
 			} #end if seq
 		} # end if working with tophat
 		elsif ($mappingtool =~ /star/i) {
-			my ($annotation, $otherseq); undef %ALL; my $no = 0;
+			my ($annotation, $otherseq); undef %ALL; my $no = 0; $mparameters =~ s/\s+/ /g;
 			my @newgeninfo = split('\s', $mparameters);
 			my $number = 1;
 			while ($number <= $#newgeninfo) {
@@ -976,8 +976,8 @@ sub LOGFILE { #subroutine for getting metadata
 						$ALL{$newgeninfo[$old]} = $newgeninfo[$number];
 					}
 				} else {
-					my $old = $number++;
-					my $seq = $newgeninfo[$number]; 
+					#my $old = $number++;
+					my $seq = $newgeninfo[++$number]; 
 					my $new = $number+1;
 					unless ($newgeninfo[$new] =~ /^\-\-/) {
 						$otherseq = $newgeninfo[$new]; #if paired reads
@@ -992,7 +992,7 @@ sub LOGFILE { #subroutine for getting metadata
 			$annotationfile = undef;
 			$stranded = undef;
 			$refgenome = $ALL{"--genomeDir"};
-			$refgenomename = (split('\/', $ALL{0}))[-1];
+			$refgenomename = (split('\/', $ALL{"--genomeDir"}))[-1];
 		} # end if working with star
 		else {
 			$annotationfile = undef;
@@ -1602,7 +1602,7 @@ sub VEPVARIANT {
 					$chrom = $indentation[0]; $position = $indentation[1];
 					unless ( $extra{'VARIANT_CLASS'} =~ /SNV/i || $extra{'VARIANT_CLASS'} =~ /substitution/i ){
 						if($position =~ /\-/) { $position = (split("\-", $position))[0]; }
-						unless ($extra{'VARIANT_CLASS'} =~ /insertion/){ $position--; }
+						unless ($extra{'VARIANT_CLASS'} =~ /insertion/ || $extra{'VARIANT_CLASS'} =~ /indel/){ $position--; }
 					}
 				} else {
 					my @indentation = split("_", $veparray[0]);
