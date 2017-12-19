@@ -50,31 +50,6 @@
 		if ($_SESSION[$table]['num_recs'] != "all") {
 			$query .= " limit " . $_SESSION[$table]['num_recs'];
 		}
-	} elseif (!empty($_SESSION[$table]['sort'])) {
-		$is_term = false;
-		foreach ($_SESSION[$table]['select'] as $term) {
-			if (trim($term) != "") {
-				$is_term = true;
-			}
-		}
-		if ($is_term) {
-			$query .= "WHERE ";
-		}
-		foreach ($_SESSION[$table]['select'] as $term) {
-			if (trim($term) == "") {
-				continue;
-			}
-			$query .= $table.".".$_SESSION[$table]['column'] . " LIKE '%" . trim($term) . "%' OR ";
-		}
-		$query = rtrim($query, " OR ");
-		$query .= " ORDER BY " . $table.".".$_SESSION[$table]['sort'] . " " . $_SESSION[$table]['dir'];
-
-		$result = $db_conn->query($query);
-		$num_total_result = $result->num_rows;
-	
-		if ($_SESSION[$table]['num_recs'] != "all") {
-			$query .= " limit " . $_SESSION[$table]['num_recs'];
-		}
 	} elseif (!empty($_GET['libs'])) {
     //if the sort option was used
 		$_SESSION[$table]['num_recs'] = "all";
@@ -105,7 +80,32 @@
 		if ($_SESSION[$table]['num_recs'] != "all") {
 			$query .= " limit " . $_SESSION[$table]['num_recs'];
 		}
-	}
+	} elseif (!empty($_SESSION[$table]['sort'])) {
+		$is_term = false;
+		foreach ($_SESSION[$table]['select'] as $term) {
+			if (trim($term) != "") {
+				$is_term = true;
+			}
+		}
+		if ($is_term) {
+			$query .= "WHERE ";
+		}
+		foreach ($_SESSION[$table]['select'] as $term) {
+			if (trim($term) == "") {
+				continue;
+			}
+			$query .= $table.".".$_SESSION[$table]['column'] . " LIKE '%" . trim($term) . "%' OR ";
+		}
+		$query = rtrim($query, " OR ");
+		$query .= " ORDER BY " . $table.".".$_SESSION[$table]['sort'] . " " . $_SESSION[$table]['dir'];
+
+		$result = $db_conn->query($query);
+		$num_total_result = $result->num_rows;
+	
+		if ($_SESSION[$table]['num_recs'] != "all") {
+			$query .= " limit " . $_SESSION[$table]['num_recs'];
+		}
+	} 
 	$result = $db_conn->query($query);
 	if ($db_conn->errno) {
 		echo "<div>";
