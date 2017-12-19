@@ -1028,8 +1028,8 @@ sub LOGFILE { #subroutine for getting metadata
 sub READ_COUNT { #subroutine for read counts
 	#INSERT INTO DATABASE: #ReadCounts table
 	if ($readcountfile || $starcountfile) {
-		my $readcount = 0;
 		my $countcolumn = "-1";
+		my ($countpreamble, $checkforpreamble, $readcount) = (0,0,0);
 		$sth = $dbh->prepare("select countstatus from GeneStats where sampleid = '$_[0]' and countstatus ='done'"); $sth->execute(); $found = $sth->fetch();
 		unless ($found) {
 			my $ffastbit = fastbit($all_details{'FastBit-path'}, $all_details{'FastBit-foldername'});  #connect to fastbit
@@ -1049,14 +1049,13 @@ sub READ_COUNT { #subroutine for read counts
 				open(READ, "<", $readcountfile) or die "\nERROR:\t Can not open file $readcountfile\n";
 			} else {
 				open(READ, "<", $starcountfile) or die "\nERROR:\t Can not open file $starcountfile\n";
-				$countcolumn = "1";
+				$countcolumn = "1"; $checkforpreamble = "1";
 			}
-			my ($countpreamble, $checkforpreamble) = (0,0);
 			open (NOSQL, ">$cnosql");
 			while (<READ>) {
 				chomp;
 				my @allidgene = split("\t");
-				my ($idgene, $idcount) = ($allidgene[0], $allidgene[$countcolumn]);
+				my ($idgene, $idcount) = ($allidgene[0], $allidgene[$countcolumn]); 
 				if ($idgene =~ /^[a-zA-Z0-9][a-zA-Z0-9]/) {
 					if ($countpreamble == 0 || $countpreamble == 2) {
 						$checkforpreamble = 1;
