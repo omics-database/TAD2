@@ -342,8 +342,8 @@ CREATE TABLE `VarAnnotation` (
 	`feature` VARCHAR(100) NULL DEFAULT NULL,
 	`genetype` VARCHAR(250) NULL DEFAULT NULL,
 	`proteinposition` VARCHAR(100) NOT NULL DEFAULT '',
-	`aachange` VARCHAR(100) NULL DEFAULT NULL,
-	`codonchange` VARCHAR(100) NULL DEFAULT NULL,
+	`aachange` VARCHAR(1000) NULL DEFAULT NULL,
+	`codonchange` VARCHAR(1000) NULL DEFAULT NULL,
 	PRIMARY KEY (`consequence`, `geneid`, `proteinposition`, `sampleid`, `chrom`, `position`),
 	INDEX `varannotation_indx_genename` (`genename` ASC),
 	CONSTRAINT `varannotation_ibfk_1` FOREIGN KEY (`sampleid` , `chrom` , `position`) REFERENCES `VarResult` (`sampleid` , `chrom` , `position`)
