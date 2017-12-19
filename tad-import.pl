@@ -1597,14 +1597,22 @@ sub VEPVARIANT {
 				my @veparray = split "\t"; #14 columns
 				my @extraarray = split(";", $veparray[13]);
 				foreach (@extraarray) { my @earray = split "\="; $extra{$earray[0]}=$earray[1]; }
-				my @indentation = split("_", $veparray[0]);
-				if ($#indentation > 2) { $chrom = $indentation[0]."_".$indentation[1]; $position = $indentation[2]; }
-				else { $chrom = $indentation[0]; $position = $indentation[1]; }
-				$chrom = "chr".$chrom;
-				unless ( $extra{'VARIANT_CLASS'} =~ "SNV" or $extra{'VARIANT_CLASS'} =~ "substitution" ){ $position--; }
-				else {
-					my @poly = split("/",$indentation[$#indentation]);
-					unless ($#poly > 1){ unless (length ($poly[0]) == length($poly[1])){ $position--; } }
+				unless (length($veparray[0]) >1) {
+					my @indentation = split(":", $veparray[1]);
+					$chrom = $indentation[0]; $position = $indentation[1];
+					unless ( $extra{'VARIANT_CLASS'} =~ /SNV/i || $extra{'VARIANT_CLASS'} =~ /substitution/i ){
+						if($position =~ /\-/) { $position = (split("\-", $position))[0]; }
+						unless ($extra{'VARIANT_CLASS'} =~ /insertion/){ $position--; }
+					}
+				} else {
+					my @indentation = split("_", $veparray[0]);
+					if ($#indentation > 2) { $chrom = $indentation[0]."_".$indentation[1]; $position = $indentation[2]; }
+					else { $chrom = $indentation[0]; $position = $indentation[1]; }
+					unless ( $extra{'VARIANT_CLASS'} =~ "SNV" or $extra{'VARIANT_CLASS'} =~ "substitution" ){ $position--; }
+					else {
+						my @poly = split("/",$indentation[$#indentation]);
+						unless ($#poly > 1){ unless (length ($poly[0]) == length($poly[1])){ $position--; } }
+					}
 				}
 				my $geneid = $veparray[3];
 				my $transcriptid = $veparray[4];
@@ -1652,6 +1660,7 @@ sub dbvepinput {
 		$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, feature, genetype, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?,?,?)");
 		my ($vsample,$vchrom, $vposition, $vclass, $vconsequence, $vgeneid, $vpposition, $vdbsnp) = @{$HASHDBVARIANT{$a}}[0..7];
 		my @vrest = @{$HASHDBVARIANT{$a}}[8..$#{$HASHDBVARIANT{$a}}];
+		#printerr "$vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest\n";
 		$sth->execute($vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
 		$sth = $dbh->prepare("update VarResult set variantclass = '$vclass' where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition"); $sth ->execute() or die "\nERROR:\t Complication in updating VarResult table, consult documentation\n";
 		
