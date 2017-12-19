@@ -2,6 +2,7 @@
 	session_start();
 	require_once('all_fns.php');
 	tmetadata();
+	if (empty($dataline)){ $dataline = ""; }
 	if (empty($_POST['rnull'])) { $_POST['rnull'] = ""; }
 	if (empty($_POST['cnull'])) { $_POST['cnull'] = ""; }
 	if (empty($_POST['vnull'])) { $_POST['vnull'] = ""; }
