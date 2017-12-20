@@ -1601,7 +1601,12 @@ sub VEPVARIANT {
 					$chrom = $indentation[0]; $position = $indentation[1];
 					unless ( $extra{'VARIANT_CLASS'} =~ /SNV/i || $extra{'VARIANT_CLASS'} =~ /substitution/i ){
 						if($position =~ /\-/) { $position = (split("\-", $position))[0]; }
-						unless ($extra{'VARIANT_CLASS'} =~ /insertion/ || $extra{'VARIANT_CLASS'} =~ /indel/){ $position--; }
+						unless ($extra{'VARIANT_CLASS'} =~ /insertion/) { $position--; }
+						if ($extra{'VARIANT_CLASS'} =~ /indel/){ #check if the chromosomal number matches the VCF file
+							my $check = 0;
+							$sth = $dbh->prepare("select chrom, position from VarResult where sampleid = '$_[1]' and chrom = '$chrom' and position = $position"); $sth->execute(); $found = $sth->fetch();
+							unless($found) { $position++; }
+						}
 					}
 				} else {
 					my @indentation = split("_", $veparray[0]);
@@ -1659,7 +1664,6 @@ sub dbvepinput {
 		$sth = $dbh->prepare("insert into VarAnnotation ( sampleid, chrom, position, consequence, geneid, proteinposition, source, genename, transcript, feature, genetype, aachange, codonchange ) values (?,?,?,?,?,?,?,?,?,?,?,?,?)");
 		my ($vsample,$vchrom, $vposition, $vclass, $vconsequence, $vgeneid, $vpposition, $vdbsnp) = @{$HASHDBVARIANT{$a}}[0..7];
 		my @vrest = @{$HASHDBVARIANT{$a}}[8..$#{$HASHDBVARIANT{$a}}];
-		#printerr "$vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest\n";
 		$sth->execute($vsample,$vchrom, $vposition, $vconsequence, $vgeneid, $vpposition, @vrest) or die "\nERROR:\t Complication in VarAnnotation table, consult documentation\n";
 		$sth = $dbh->prepare("update VarResult set variantclass = '$vclass' where sampleid = '$vsample' and chrom = '$vchrom' and position = $vposition"); $sth ->execute() or die "\nERROR:\t Complication in updating VarResult table, consult documentation\n";
 		
