@@ -208,7 +208,9 @@
       echo '<form action="" method="post">';
       echo "<span>" . $num_results . " out of " . $num_total_result . " search results displayed. ";
       echo '<input type="submit" name="downloadvalues" value="Download Selected Values"/></span>
-	    <input type="submit" name="downloadfpkm" value="Download FPKM  Values"/></span>';
+	    <input type="submit" name="downloadfpkm" value="Download FPKM  Values"/></span>
+			<input type="submit" name="downloadtpm" value="Download TPM  Values"/></span>';
+      
       metavw_display($result);
       if(!empty($_POST['meta_data']) && isset($_POST['downloadvalues'])) { //If download Metadata
         foreach($_POST['meta_data'] as $check) {
@@ -235,6 +237,22 @@
 		$pquery = "perl $basepath/tad-export.pl -w -genexp --db2data --species '$organism' --samples '$dataline' --output $output";
 		shell_exec($pquery);
         print("<script>location.href='results.php?file=$output&name=fpkm.txt'</script>");
+      }
+			elseif(!empty($_POST['meta_data']) && isset($_POST['downloadtpm'])) { //If download tpm
+        foreach($_POST['meta_data'] as $check) {
+          $dataline .= $check.",";
+		  $newdataline .= '"'.$check.'",';
+        }
+        $dataline = rtrim($dataline, ",");$newdataline = rtrim($newdataline, ",");
+		$output = "OUTPUT/tpm_".$explodedate.".txt";
+		$query = "select b.organism from Animal b join Sample a on a.derivedfrom = b.animalid where a.sampleid in ($newdataline) limit 1";
+		$result = mysqli_query($db_conn,$query);
+		$row = mysqli_fetch_array($result,MYSQLI_ASSOC);
+		$organism = $row['organism'];
+        
+		$pquery = "perl $basepath/tad-export.pl -w -genexp --tpm --db2data --species '$organism' --samples '$dataline' --output $output";
+		shell_exec($pquery);
+        print("<script>location.href='results.php?file=$output&name=tpm.txt'</script>");
       }
       elseif(!empty($_POST['meta_data']) && isset($_POST['transfervalues'])) { //If transfer to sequencing information page
         foreach($_POST['meta_data'] as $check) {

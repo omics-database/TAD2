@@ -92,7 +92,7 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 			echo '<center>No result based on search criteria.</center>';
 		}
 	}
-} else {
+} else { #working with the relational database
 	if(!empty($_REQUEST['order'])) {
 		$_SESSION[$table]['select'] = $_POST['search'];
 	}
@@ -123,7 +123,7 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 </td></tr></table>
 	
 <?php
-  	if ( !empty($db_conn) && (!empty($_POST['order']) || !empty($_POST['search'])) ) { //make sure an options is selected
+  if ( !empty($db_conn) && (!empty($_POST['order']) || !empty($_POST['search']) || !empty($_POST['downloadfiles'])) ) { //make sure an options is selected
 		echo '<div class="menu">Output</div><div class="xtra">';
 		echo '<form action="" method="post">';
 		$result = $db_conn->query($_SESSION[$table]['select']);
@@ -138,9 +138,11 @@ sampleid, organism, tissue, chrom, position, refallele, altallele, variantclass,
 			$pquery = "perl $basepath/tad-export.pl -w -query '".$_SESSION[$table]['select']."' -o $output";
 			if (isset($_POST['downloadfiles']) && !empty($_SESSION[$table]['select']) ){ 
 				shell_exec($pquery);
-	        	print("<script>location.href='results.php?file=$output&name=query.txt'</script>");
+			print("<script>location.href='results.php?file=$output&name=query.txt'</script>");
 			}
 		}
+	} else {
+		print "no db_conn"; 
 	}
 } # end of relational database
 	?>
