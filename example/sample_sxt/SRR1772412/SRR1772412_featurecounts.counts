@@ -1,3 +1,5 @@
+# Program:featureCounts v1.6.0; Command:"/home/modupe/.software/subread-1.6.0-source/bin/featureCounts" "-a" "/home/modupe/Dopsistemp/genome/Arabidopsis_thaliana.TAIR10.37.gtf" "-o" "SRR1772412_featurecounts.counts" "accepted_hits.bam" 
+Geneid	Chr	Start	End	Strand	Length	accepted_hits.bam
 AT1G01110	1;1;1;1;1;1;1;1;1	51953;52061;52434;52938;52938;53484;53484;53703;53703	52346;52730;52730;53183;53183;53624;53624;54737;54689	+;+;+;+;+;+;+;+;+	2200	85
 AT1G01200	1;1	86486;87880	87162;88409	-;-	1207	4
 AT1G01400	1;1;1;1	150689;151393;151932;152086	151298;151731;152002;152210	-;-;-;-	1145	1
