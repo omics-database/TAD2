@@ -108,7 +108,6 @@ function tfragment() {
             self.location='?quest=fragments&organism=' + val ;
         }
     </script>
-    </script>
 <?php
 }
 ?>
